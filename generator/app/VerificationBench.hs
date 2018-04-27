@@ -21,9 +21,11 @@ import           Pos.Block.Logic.VAR (verifyAndApplyBlocks, verifyBlocksPrefix, 
 import           Pos.Core (Block, headerHash)
 import           Pos.Core.Chrono (OldestFirst (..), NE, nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Configuration (genesisBlockVersionData, genesisData, genesisSecretKeys)
+import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
+                                         genesisSecretKeys, slotSecurityParam)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..), GenesisInitializer (..), TestnetBalanceOptions (..))
 import           Pos.Core.Slotting (Timestamp (..))
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..), genBlocksNoApply)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..), HasConfigurations, defaultConfigurationOptions, withConfigurationsM)
@@ -52,15 +54,15 @@ balance = TestnetBalanceOptions
     , tboUseHDAddresses = False
     }
 
-generateBlocks :: HasConfigurations => BlockCount -> BlockTestMode (OldestFirst NE Block)
-generateBlocks bCount = do
+generateBlocks :: HasConfigurations => ProtocolMagic -> BlockCount -> BlockTestMode (OldestFirst NE Block)
+generateBlocks pm bCount = do
     g <- liftIO $ newStdGen
     let secretKeys =
             case genesisSecretKeys of
                 Nothing ->
                     error "generateBlocks: no genesisSecretKeys"
                 Just ks -> ks
-    bs <- flip evalRandT g $ genBlocksNoApply
+    bs <- flip evalRandT g $ genBlocksNoApply pm
             (BlockGenParams
                 { _bgpSecrets = mkAllSecretsSimple secretKeys
                 , _bgpBlockCount = bCount
@@ -71,7 +73,7 @@ generateBlocks bCount = do
                 , _bgpInplaceDB = False
                 , _bgpSkipNoKey = True
                 , _bgpGenStakeholders = gdBootStakeholders genesisData
-                , _bgpTxpGlobalSettings = txpGlobalSettings
+                , _bgpTxpGlobalSettings = txpGlobalSettings pm
                 })
             maybeToList
     return $ OldestFirst $ NE.fromList bs
@@ -153,18 +155,18 @@ main = do
                     }
             in runBlockTestMode tp $ do
                 -- initialize databasea
-                initNodeDBs
+                initNodeDBs pm slotSecurityParam
                 -- generate blocks and evaluate them to normal form
                 logInfo "Generating blocks"
-                bs <- generateBlocks (baBlockCount args)
+                bs <- generateBlocks pm (baBlockCount args)
                 logDebug $ sformat ("generated blocks:\n\t"%stext) $ T.intercalate "\n\t" $ map (show . headerHash) (IL.toList bs)
                 let bss = force $ take (baRuns args) $ repeat bs
 
                 logInfo "Verifying blocks"
                 (times, errs) <- unzip <$> forM bss
                     (if baApply args
-                        then validateAndApply
-                        else validate)
+                        then validateAndApply pm
+                        else validate pm)
 
                 let -- drop first three results (if there are more than three results)
                     itimes :: [Float]
@@ -193,24 +195,26 @@ main = do
 
         validate
             :: HasConfigurations
-            => OldestFirst NE Block
+            => ProtocolMagic
+            -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validate blocks = do
+        validate pm blocks = do
             verStart <- realTime
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix blocks
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
         validateAndApply
             :: HasConfigurations
-            => OldestFirst NE Block
+            => ProtocolMagic
+            -> OldestFirst NE Block
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
-        validateAndApply blocks = do
+        validateAndApply pm blocks = do
             verStart <- realTime
-            res <- force <$> verifyAndApplyBlocks False blocks
+            res <- force <$> verifyAndApplyBlocks pm False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()
                 Right (_, blunds)
-                    -> whenJust (nonEmptyNewestFirst blunds) rollbackBlocks
+                    -> whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks pm)
             return (verEnd - verStart, either (Just . Right) (const Nothing) res)

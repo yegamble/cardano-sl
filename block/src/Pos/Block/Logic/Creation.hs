@@ -224,7 +224,7 @@ createMainBlockAndApply pm sId pske =
     modifyStateLock HighPriority ApplyBlock createAndApply
   where
     createAndApply tip =
-        createMainBlockInternal pm sId pske >>= \case
+        DB.getTipHeader >>= createMainBlockInternal pm sId pske >>= \case
             Left reason -> pure (tip, Left reason)
             Right blk -> convertRes <$> applyCreatedBlock pm pske blk
     convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
@@ -245,9 +245,9 @@ createMainBlockInternal ::
     => ProtocolMagic
     -> SlotId
     -> ProxySKBlockInfo
+    -> BlockHeader
     -> m (Either Text MainBlock)
-createMainBlockInternal pm sId pske = do
-    tipHeader <- DB.getTipHeader
+createMainBlockInternal pm sId pske tipHeader = do
     logInfoS $ sformat msgFmt tipHeader
     canCreateBlock sId tipHeader >>= \case
         Left reason -> pure (Left reason)
@@ -383,7 +383,7 @@ applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
         logDebug $ "Clearing mempools"
         clearMempools
         logDebug $ "Creating empty block"
-        createMainBlockInternal pm slotId pske >>= \case
+        DB.getTipHeader >>= createMainBlockInternal pm slotId pske >>= \case
             Left err ->
                 assertionFailed $
                 sformat ("Couldn't create a block in fallback: "%stext) err
