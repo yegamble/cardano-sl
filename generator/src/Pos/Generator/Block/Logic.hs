@@ -15,7 +15,7 @@ import           Universum
 import           Control.Lens (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
 import           Data.Default (Default)
-import           Formatting (build, sformat, (%))
+import           Formatting (build, sformat, shown, (%))
 import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
 
@@ -120,8 +120,9 @@ genBlocksNoApply pm params inj = do
         -> EpochOrSlot
         -> RandT g (BlockGenMode (MempoolExt m) m) (BlockHeader, t)
     genOneBlock (header, t) eos = do
-        block <- genBlockNoApply pm eos header
-        return (maybe header getBlockHeader block, (t <>) . inj $ block)
+        genBlockNoApply pm eos header >>= \case
+            Nothing -> error $ sformat ("genBlockNoApply: failed to generate a block: previous hash: "%shown) (headerHash header)
+            Just bl -> return (getBlockHeader bl, (t <>) . inj $ Just bl)
 
 -- | Generate a 'Block' for the given epoch or slot (geneis block in the formet
 -- case and main block in the latter case) and do not apply it.
@@ -177,7 +178,7 @@ genBlockNoApply pm eos header = do
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Block
     genMainBlock slot proxySkInfo =
-        createMainBlockInternal pm slot proxySkInfo >>= \case
+        createMainBlockInternal pm slot proxySkInfo header >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> return $ Right mainBlock
 
