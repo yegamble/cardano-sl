@@ -217,6 +217,7 @@ executable cardano-launcher
   main-is:             Main.hs
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-wl-pprint
                      , async
                      , base
@@ -281,6 +282,7 @@ executable cardano-addr-convert
                      , cardano-sl-util
                      , neat-interpolation
                      , optparse-applicative
+                     , formatting
                      , text
                      , universum
   default-language:    Haskell2010

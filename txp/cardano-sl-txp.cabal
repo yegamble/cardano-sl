@@ -65,6 +65,7 @@ library
     Pos.Binary.Txp.Network
 
   build-depends:       aeson
+                     , aeson-options
                      , base
                      , bytestring
                      , cardano-sl-binary
@@ -104,7 +105,6 @@ library
                      , tagged
                      , template-haskell
                      , text
-                     , text-format
                      , transformers
                      , universum
                      , unliftio
@@ -161,6 +161,7 @@ test-suite test
                      , cardano-sl-util-test
                      , containers
                      , data-default
+                     , formatting
                      , fmt
                      , generic-arbitrary
                      , hspec
@@ -168,7 +169,6 @@ test-suite test
                      , mtl
                      , QuickCheck
                      , serokell-util
-                     , text-format
                      , universum
                      , unordered-containers
                      , vector

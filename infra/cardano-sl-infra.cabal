@@ -120,6 +120,7 @@ library
   other-modules:        Paths_cardano_sl_infra
 
   build-depends:        aeson
+                      , aeson-options
                       , async
                       , base
                       , parsec
@@ -165,7 +166,6 @@ library
                       , template-haskell
                       , tar
                       , text
-                      , text-format
                       , time
                       , time-units
                       , transformers

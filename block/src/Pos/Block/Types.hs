@@ -17,8 +17,9 @@ module Pos.Block.Types
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, (%))
+import qualified Formatting as F
+import           Formatting.Buildable (Buildable (build))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Block.Slog.Types (SlogUndo (..))
@@ -48,9 +49,9 @@ instance HasConfiguration => Buildable Undo where
     build Undo{..} =
         bprint ("Undo:\n"%
                 "  undoTx: "%listJson%"\n"%
-                "  undoDlg: "%build%"\n"%
-                "  undoUS: "%build%"\n"%
-                "  undoSlog: "%build)
+                "  undoDlg: "%F.build%"\n"%
+                "  undoUS: "%F.build%"\n"%
+                "  undoSlog: "%F.build)
                (map (bprint listJson) undoTx) undoDlg undoUS undoSlog
 
 instance HasDifficulty Blund where

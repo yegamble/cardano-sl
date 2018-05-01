@@ -4,7 +4,8 @@ module Pos.Txp.Network.Types
        ( TxMsgContents (..)
        ) where
 
-import qualified Data.Text.Buildable as Buildable
+import           Formatting.Buildable (Buildable (build))
+
 import           Formatting (bprint, (%))
 import           Universum
 

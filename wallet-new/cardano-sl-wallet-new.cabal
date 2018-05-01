@@ -114,6 +114,7 @@ library
                      , QuickCheck
                      , acid-state
                      , aeson
+                     , aeson-options
                      , aeson-pretty
                      , async
                      , beam-core
@@ -171,7 +172,6 @@ library
                      , sqlite-simple-errors
                      , swagger2
                      , text
-                     , text-format
                      , time
                      , time-units
                      , tls
@@ -324,7 +324,6 @@ executable wal-integr-test
                      , servant-quickcheck
                      , servant-server
                      , text
-                     , text-format
                      , universum
                      , unordered-containers
                      , wai
@@ -443,7 +442,6 @@ test-suite wallet-unit-tests
                     , safe-exceptions
                     , serokell-util
                     , text
-                    , text-format
                     , universum
                     , unordered-containers
                     , vector

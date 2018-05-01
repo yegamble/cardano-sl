@@ -77,6 +77,7 @@ library
 
   build-depends:       Cabal
                      , aeson
+                     , aeson-options
                      , base
                      , bytestring
                      , cardano-sl-binary
@@ -110,7 +111,7 @@ library
                      , stm
                      , tagged
                      , template-haskell
-                     , text-format
+                     , text
                      , time-units
                      , transformers
                      , universum

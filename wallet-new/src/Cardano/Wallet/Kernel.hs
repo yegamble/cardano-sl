@@ -34,7 +34,9 @@ import           Control.Lens.TH
 import qualified Data.Map.Strict as Map
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 
-import           Formatting (build, sformat)
+import           Formatting (sformat)
+import qualified Formatting as F
+import           Formatting.Buildable (Buildable)
 
 import           System.Wlog (Severity (..))
 
@@ -312,7 +314,7 @@ walletQuery' pw qry= do
     let res = qry (snapshot ^. dbHdWallets)
     either err return res
     where
-        err = error . sformat build
+        err = error . sformat F.build
 
 accountUtxo :: PassiveWallet -> HdAccountId -> IO Utxo
 accountUtxo pw accountId

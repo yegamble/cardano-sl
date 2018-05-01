@@ -29,6 +29,8 @@ import           Pos.Util.Util (leftToPanic)
 
 import           Pos.Core.Slotting.SlotCount (SlotCount)
 
+import           Formatting.Buildable (Buildable)
+
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = UnsafeLocalSlotIndex
     { getSlotIndex :: Word16
