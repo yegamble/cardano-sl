@@ -49,6 +49,7 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
 import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
@@ -285,7 +286,8 @@ applyWithoutRollback pm diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        res <- fmap fst <$> verifyAndApplyBlocks pm False blocks
+        curSlot <- getCurrentSlot
+        res <- fmap fst <$> verifyAndApplyBlocks pm curSlot False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
