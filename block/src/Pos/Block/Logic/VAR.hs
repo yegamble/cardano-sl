@@ -3,6 +3,9 @@
 
 module Pos.Block.Logic.VAR
        ( verifyBlocksPrefix
+       , VerifyBlocksContext
+       , getVerifyBlocksContext
+       , getVerifyBlocksContext'
 
        , BlockLrcMode
        , verifyAndApplyBlocks
@@ -27,26 +30,25 @@ import           Pos.Block.Error (ApplyBlocksException (..), RollbackException (
                                   VerifyBlocksException (..))
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            MonadBlockVerify, MonadMempoolNormalization,
-                                           applyBlocksUnsafe, normalizeMempool,
-                                           rollbackBlocksUnsafe, toSscBlock, toTxpBlock,
-                                           toUpdateBlock)
+                                           VerifyBlocksContext (..), applyBlocksUnsafe,
+                                           getVerifyBlocksContext, getVerifyBlocksContext',
+                                           normalizeMempool, rollbackBlocksUnsafe,
+                                           toSscBlock, toTxpBlock, toUpdateBlock)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
 import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst)
-import           Pos.Core.Slotting (SlotId)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics)
-import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
+import           Pos.Update.DB (getAdoptedBVFull)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))
@@ -75,10 +77,10 @@ verifyBlocksPrefix
        , MonadBlockVerify ctx m
        )
     => ProtocolMagic
-    -> Maybe SlotId -- ^ current slot to verify that headers are not from future slots
+    -> VerifyBlocksContext
     -> OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
-verifyBlocksPrefix pm currentSlot blocks = runExceptT $ do
+verifyBlocksPrefix pm ctx blocks = runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
     tip <- lift GS.getTip
@@ -86,23 +88,26 @@ verifyBlocksPrefix pm currentSlot blocks = runExceptT $ do
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.
-    adoptedBV <- lift GS.getAdoptedBV
-    let dataMustBeKnown = mustDataBeKnown adoptedBV
+    let dataMustBeKnown = mustDataBeKnown (vbcBlockVersion ctx)
 
     -- Run verification of each component.
     -- 'slogVerifyBlocks' uses 'Pos.Block.Pure.verifyBlocks' which does
     -- the internal consistency checks formerly done in the 'Bi' instance
     -- 'decode'.
     slogUndos <- withExceptT VerifyBlocksError $
-        ExceptT $ slogVerifyBlocks pm currentSlot blocks
+        ExceptT $ slogVerifyBlocks pm
+            (vbcCurrentSlot ctx)
+            (vbcBlockVersion ctx)
+            (vbcBlockVersionData ctx)
+            blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ sscVerifyBlocks pm (map toSscBlock blocks)
+        ExceptT $ sscVerifyBlocks pm (vbcBlockVersionData ctx) (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
     pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks pm blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
-        ExceptT $ usVerifyBlocks pm dataMustBeKnown (map toUpdateBlock blocks)
+        ExceptT $ usVerifyBlocks pm dataMustBeKnown (vbcBlockVersion ctx) (map toUpdateBlock blocks)
 
     -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
@@ -135,11 +140,11 @@ verifyAndApplyBlocks
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
-    -> Maybe SlotId
+    -> VerifyBlocksContext
     -> Bool
     -> OldestFirst NE Block
     -> m (Either ApplyBlocksException (HeaderHash, NewestFirst [] Blund))
-verifyAndApplyBlocks pm curSlot rollback blocks = runExceptT $ do
+verifyAndApplyBlocks pm ctx rollback blocks = runExceptT $ do
     tip <- lift GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
@@ -174,11 +179,16 @@ verifyAndApplyBlocks pm curSlot rollback blocks = runExceptT $ do
     applyAMAP e (OldestFirst []) _      True                   = throwError e
     applyAMAP _ (OldestFirst []) blunds False                  = (,blunds) <$> lift GS.getTip
     applyAMAP e (OldestFirst (block:xs)) blunds nothingApplied = do
-        lift (verifyBlocksPrefix pm curSlot (one block)) >>= \case
+        lift (verifyBlocksPrefix pm ctx (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
                 applyAMAP e' (OldestFirst []) blunds nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
-                lift $ applyBlocksUnsafe pm (ShouldCallBListener True) (one (block, undo)) (Just pModifier)
+                lift $ applyBlocksUnsafe pm
+                    (vbcBlockVersion ctx)
+                    (vbcBlockVersionData ctx)
+                    (ShouldCallBListener True)
+                    (one (block, undo))
+                    (Just pModifier)
                 applyAMAP e (OldestFirst xs) (NewestFirst $ (block, undo) : getNewestFirst blunds) False
             Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
@@ -209,7 +219,7 @@ verifyAndApplyBlocks pm curSlot rollback blocks = runExceptT $ do
                        <> pretty epochIndex
             lift $ lrcSingleShot pm epochIndex
         logDebug "Rolling: verifying"
-        lift (verifyBlocksPrefix pm curSlot prefix) >>= \case
+        lift (verifyBlocksPrefix pm ctx prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
@@ -223,7 +233,12 @@ verifyAndApplyBlocks pm curSlot rollback blocks = runExceptT $ do
                                               getOldestFirst undos
                 let blunds' = toNewestFirst newBlunds : blunds
                 logDebug "Rolling: Verification done, applying unsafe block"
-                lift $ applyBlocksUnsafe pm (ShouldCallBListener True) newBlunds (Just pModifier)
+                lift $ applyBlocksUnsafe pm
+                    (vbcBlockVersion ctx)
+                    (vbcBlockVersionData ctx)
+                    (ShouldCallBListener True)
+                    newBlunds
+                    (Just pModifier)
                 case getOldestFirst suffix of
                     [] -> (,concatNE blunds') <$> lift GS.getTip
                     (genesis:xs) -> do
@@ -255,7 +270,8 @@ applyBlocks pm calculateLrc pModifier blunds = do
         -- caller most definitely should have computed lrc to verify
         -- the sequence beforehand.
         lrcSingleShot pm (prefixHead ^. epochIndexL)
-    applyBlocksUnsafe pm (ShouldCallBListener True) prefix pModifier
+    (bv, bvd) <- getAdoptedBVFull
+    applyBlocksUnsafe pm bv bvd (ShouldCallBListener True) prefix pModifier
     case getOldestFirst suffix of
         []           -> pass
         (genesis:xs) -> applyBlocks pm calculateLrc pModifier (OldestFirst (genesis:|xs))
@@ -319,7 +335,7 @@ applyWithRollback pm toRollback toApply = runExceptT $ do
         applyBack $> Left (ApplyBlocksTipMismatch "applyWithRollback/apply" tip newestToRollback)
 
     onGoodRollback = do
-        curSlot <- getCurrentSlot
-        verifyAndApplyBlocks pm curSlot True toApply >>= \case
+        ctx <- getVerifyBlocksContext
+        verifyAndApplyBlocks pm ctx True toApply >>= \case
             Left err           -> applyBack $> Left err
             Right (tipHash, _) -> pure (Right tipHash)

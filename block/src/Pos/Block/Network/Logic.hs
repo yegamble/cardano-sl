@@ -31,7 +31,7 @@ import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, lcaWithMainChain,
-                                  verifyAndApplyBlocks)
+                                  getVerifyBlocksContext, verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                            BlockRetrievalTask (..))
@@ -49,7 +49,6 @@ import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
 import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
@@ -286,8 +285,8 @@ applyWithoutRollback pm diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        curSlot <- getCurrentSlot
-        res <- fmap fst <$> verifyAndApplyBlocks pm curSlot False blocks
+        ctx <- getVerifyBlocksContext
+        res <- fmap fst <$> verifyAndApplyBlocks pm ctx False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
