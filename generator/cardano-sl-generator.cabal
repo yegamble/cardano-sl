@@ -272,6 +272,7 @@ executable cardano-sl-verification-bench-exe
   main-is:              VerificationBench.hs
   build-depends:        async
                       , base
+                      , bytestring
                       , cardano-sl
                       , cardano-sl-binary
                       , cardano-sl-block
@@ -292,6 +293,7 @@ executable cardano-sl-verification-bench-exe
                       , cryptonite
                       , data-default
                       , deepseq
+                      , directory
                       , ether
                       , formatting
                       , lens
