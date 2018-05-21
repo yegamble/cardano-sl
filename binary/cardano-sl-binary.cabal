@@ -86,11 +86,14 @@ library
 
 
 
-test-suite cardano-test
+test-suite test
   main-is:             test.hs
   other-modules:
+                       Spec
                        Test.Pos.Binary.Cbor.CborSpec
                        Test.Pos.Binary.Helpers
+                       Test.Pos.Binary.Simple
+                       Test.Pos.Binary.Tripping
                        Test.Pos.Cbor.RefImpl
                        Test.Pos.Cbor.Canonicity
 
@@ -113,10 +116,12 @@ test-suite cardano-test
                      , formatting
                      , generic-arbitrary
                      , half
+                     , hedgehog
                      , hspec
                      , lens
                      , mtl
                      , pvss
+                     , pretty-show
                      , quickcheck-instances
                      , random
                      , reflection
