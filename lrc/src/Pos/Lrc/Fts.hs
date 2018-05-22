@@ -9,7 +9,7 @@ module Pos.Lrc.Fts
 import           Universum
 
 import           Control.Lens (makeLenses, makePrisms, uses)
-import           Data.Conduit (ConduitT, (.|), runConduitPure, await)
+import           Data.Conduit (ConduitT, await, runConduitPure, (.|))
 import qualified Data.Conduit.List as CL
 import           Data.List.NonEmpty (fromList)
 
