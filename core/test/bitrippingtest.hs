@@ -1,6 +1,6 @@
 import           Universum
 
-import           Test.Pos.Core.Tripping (runTests)
+import           Test.Pos.Binary.Tripping (runTests)
 
 import qualified Test.Pos.Core.TxInWitnessHH (hedgeTests)
 

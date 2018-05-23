@@ -7,7 +7,7 @@ import           Universum as U
 
 import           Data.Maybe (fromJust)
 import           Hedgehog (checkParallel, discover, forAll, Gen, property, Property)
-import           Pos.Binary.Core()
+import           Pos.Binary.Core ()
 import           Pos.Core.Common (Address (..), Coin (..), IsBootstrapEraAddr (..)
                                  , makePubKeyAddress, Script (..))
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxSig (..)
@@ -19,7 +19,7 @@ import           Pos.Crypto.Signing  (PublicKey (..), redeemDeterministicKeyGen,
 import           Pos.Crypto.Signing.Signing (createKeypairFromSeed, sign )
 import           Pos.Crypto.Signing (SignTag (..))
 import           Pos.Data.Attributes (mkAttributes)
-import           Test.Pos.Core.Tripping
+import           Test.Pos.Binary.Tripping
 
 import qualified Data.ByteString.Lazy as LB
 import qualified Hedgehog.Gen as Gen
