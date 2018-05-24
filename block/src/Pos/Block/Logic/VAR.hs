@@ -99,11 +99,7 @@ verifyBlocksPrefix pm ctx blocks = runExceptT $ do
     -- the internal consistency checks formerly done in the 'Bi' instance
     -- 'decode'.
     slogUndos <- withExceptT VerifyBlocksError $
-        ExceptT $ slogVerifyBlocks pm
-            (vbcCurrentSlot ctx)
-            (vbcBlockVersion ctx)
-            (vbcBlockVersionData ctx)
-            blocks
+        ExceptT $ slogVerifyBlocks pm ctx blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ sscVerifyBlocks pm (vbcBlockVersionData ctx) (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
