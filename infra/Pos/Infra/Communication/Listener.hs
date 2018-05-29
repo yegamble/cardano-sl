@@ -19,8 +19,9 @@ import           Pos.Infra.Communication.Protocol (ConversationActions,
                                                    checkProtocolMagic,
                                                    checkingInSpecs,
                                                    messageCode)
-import           Pos.Infra.Binary ()
+import           Pos.Binary.Infra ()
 import           Pos.Infra.Network.Types (Bucket)
+import           Pos.Communication.BiP (biSerIO)
 import           Pos.Util.Trace (Trace, Severity)
 
 -- TODO automatically provide a 'recvLimited' here by using the
@@ -41,7 +42,7 @@ listenerConv logTrace oq h = (lspec, mempty)
     spec = (rcvMsgCode, ConvHandler sndMsgCode)
     lspec =
       flip ListenerSpec spec $ \ourVerInfo ->
-          N.Listener $ \peerVerInfo' nNodeId conv -> checkProtocolMagic ourVerInfo peerVerInfo' $ do
+          N.Listener biSerIO biSerIO $ \peerVerInfo' nNodeId conv -> checkProtocolMagic ourVerInfo peerVerInfo' $ do
               OQ.clearFailureOf oq nNodeId
               checkingInSpecs logTrace ourVerInfo peerVerInfo' spec nNodeId $
                   h ourVerInfo nNodeId conv
