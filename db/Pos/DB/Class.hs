@@ -1,7 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE Rank2Types          #-}
 
 -- | A set of type classes which provide access to database.
 --
@@ -58,6 +59,7 @@ import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi, decodeFull')
+import           Pos.Binary.Class (Bi, DecoderAttrKind (..), decodeFull')
 import           Pos.Core (Block, BlockHeader, BlockVersionData (..), EpochIndex, HasConfiguration,
                      HeaderHash, isBootstrapEra)
 import           Pos.DB.Error (DBError (DBMalformed))
@@ -134,7 +136,7 @@ getDeserialized getter x = getter x >>= \case
     Nothing  -> pure Nothing
     Just ser -> eitherToThrow $ bimap DBMalformed Just $ decodeFull' $ unSerialized ser
 
-getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe Block)
+getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe (Block 'AttrNone))
 getBlock = getDeserialized dbGetSerBlock
 
 -- | Pure interface to the database. Combines read-only interface and
@@ -164,7 +166,7 @@ class MonadDBRead m => MonadDB m where
     dbDelete :: DBTag -> ByteString -> m ()
 
     -- | Put given blunds into the Block DB.
-    dbPutSerBlunds :: NonEmpty (BlockHeader, SerializedBlund) -> m ()
+    dbPutSerBlunds :: NonEmpty (BlockHeader 'AttrNone, SerializedBlund) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m)) =>
