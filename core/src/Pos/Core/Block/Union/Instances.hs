@@ -40,10 +40,10 @@ instance Bi (BlockHeader attr) => Buildable (BlockHeader attr) where
 -- HasHeaderHash
 ----------------------------------------------------------------------------
 
-instance Bi (BlockHeader attr) => HasHeaderHash (BlockHeader attr) where
+instance HasHeaderHash (BlockHeader attr) where
     headerHash = blockHeaderHash
 
-instance Bi (BlockHeader attr) => HasHeaderHash (Block attr) where
+instance HasHeaderHash (Block attr) where
     headerHash = blockHeaderHash . getBlockHeader
 
 -- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.

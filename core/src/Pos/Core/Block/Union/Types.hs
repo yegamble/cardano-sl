@@ -55,12 +55,16 @@ import           Codec.CBOR.Encoding (encodeWord)
 import           Control.Lens (Getter, LensLike', choosing, makePrisms, to)
 import           Crypto.Hash (digestFromByteString)
 import qualified Data.ByteArray as BA
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text.Buildable as Buildable
 import qualified Data.Text.Lazy.Builder as Builder
 import           Formatting (Format, bprint, build, fitLeft, later, (%), (%.))
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), DecoderAttrKind (..), decodeListLenCanonicalOf, encodeListLen, enforceSize)
+import           Pos.Binary.Class (Bi (..), BiExtRep (..), DecoderAttrKind (..),
+                     DecoderAttr (..), decodeListLenCanonicalOf, encodeListLen,
+                     enforceSize)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                      GenericBlockHeader (..), gbHeader, gbhPrevBlock)
 import           Pos.Core.Block.Genesis.Types
@@ -71,7 +75,8 @@ import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), Slo
 import           Pos.Core.Ssc (mkSscProof)
 import           Pos.Core.Txp (mkTxProof)
 import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..), mkUpdateProof)
-import           Pos.Crypto (AbstractHash (..), Hash, ProtocolMagic, PublicKey, Signature, hash)
+import           Pos.Crypto (AbstractHash (..), Hash, ProtocolMagic, PublicKey,
+                     Signature, hash, unsafeMkAbstractHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 import           Pos.Util.Util (cborError, toCborError)
 import           Unsafe.Coerce (unsafeCoerce)
@@ -209,8 +214,7 @@ instance Bi MainConsensusData where
                                  decode <*>
                                  decode
 
-instance ( Bi (BlockHeader attr)
-         , Bi MainProof) =>
+instance ( Bi MainProof ) =>
          Blockchain MainBlockchain attr where
 
     type BodyProof MainBlockchain = MainProof
@@ -254,14 +258,6 @@ instance
     rnf (BlockHeaderGenesis header) = rnf header
     rnf (BlockHeaderMain header)    = rnf header
 
-choosingBlockHeader :: Functor f =>
-       LensLike' f (GenesisBlockHeader attr) r
-    -> LensLike' f (MainBlockHeader attr) r
-    -> LensLike' f (BlockHeader attr) r
-choosingBlockHeader onGenesis onMain f = \case
-    BlockHeaderGenesis bh -> BlockHeaderGenesis <$> onGenesis f bh
-    BlockHeaderMain bh -> BlockHeaderMain <$> onMain f bh
-
 instance Bi (BlockHeader 'AttrNone) where
    encode x = encodeListLen 2 <> encodeWord tag <> body
      where
@@ -276,6 +272,35 @@ instance Bi (BlockHeader 'AttrNone) where
            0 -> BlockHeaderGenesis <$!> decode
            1 -> BlockHeaderMain <$!> decode
            _ -> cborError $ "decode@BlockHeader: unknown tag " <> pretty t
+
+instance BiExtRep BlockHeader where
+    decodeWithOffsets = do
+        decodeListLenCanonicalOf 2
+        t <- decodeWordCanonical
+        case t of
+            0 -> BlockHeaderGenesis <$!> decodeWithOffsets
+            1 -> BlockHeaderMain <$!> decodeWithOffsets
+            _ -> cborError $ "decode@BlockHeader: unknown tag " <> pretty t
+    spliceExtRep bs (BlockHeaderGenesis h) = BlockHeaderGenesis $ spliceExtRep bs h
+    spliceExtRep bs (BlockHeaderMain h)    = BlockHeaderMain $ spliceExtRep bs h
+    forgetExtRep (BlockHeaderGenesis h) = BlockHeaderGenesis $ forgetExtRep h
+    forgetExtRep (BlockHeaderMain h)    = BlockHeaderMain $ forgetExtRep h
+
+eitherBlockHeader
+    :: (GenesisBlockHeader attr -> a)
+    -> (MainBlockHeader attr -> a)
+    -> BlockHeader attr
+    -> a
+eitherBlockHeader f _ (BlockHeaderGenesis h) = f h
+eitherBlockHeader _ f (BlockHeaderMain h)    = f h
+
+choosingBlockHeader :: Functor f =>
+       LensLike' f (GenesisBlockHeader attr) r
+    -> LensLike' f (MainBlockHeader attr) r
+    -> LensLike' f (BlockHeader attr) r
+choosingBlockHeader onGenesis onMain f = \case
+    BlockHeaderGenesis bh -> BlockHeaderGenesis <$> onGenesis f bh
+    BlockHeaderMain bh -> BlockHeaderMain <$> onMain f bh
 
 -- | Block.
 type Block (attr :: DecoderAttrKind) = Either (GenesisBlock attr) (MainBlock attr)
@@ -336,16 +361,27 @@ instance HasHeaderHash HeaderHash where
 instance HasHeaderHash (Some HasHeaderHash) where
     headerHash = applySome headerHash
 
+instance HasHeaderHash (Hash (BlockHeader attr)) where
+    headerHash = anyHeaderHash
+
 headerHashG :: HasHeaderHash a => Getter a HeaderHash
 headerHashG = to headerHash
 
--- | This function is required because type inference fails in attempts to
--- hash only @Right@ or @Left@.
---
--- Perhaps, it shouldn't be here, but I decided not to create a module
--- for only this function.
-blockHeaderHash :: forall attr. Bi (BlockHeader attr) => BlockHeader attr -> HeaderHash
-blockHeaderHash = anyHeaderHash . hash
+-- |
+-- Efficient way of computing header hash if external @'ByteString'@
+-- representation is present.
+blockHeaderHash :: BlockHeader attr -> HeaderHash
+blockHeaderHash bh =
+    case eitherBlockHeader _gbhDecoderAttr _gbhDecoderAttr bh of
+        DecoderAttrNone
+            -> anyHeaderHash $ hash $ bh
+        DecoderAttrOffsets _ _
+            -> anyHeaderHash $ hash $ forgetExtRep $ bh
+        DecoderAttrExtRep bs
+            -> let bs' = case bh of
+                    BlockHeaderGenesis _ -> BS.pack [0x82, 0] <> bs
+                    BlockHeaderMain    _ -> BS.pack [0x82, 1] <> bs
+               in anyHeaderHash $ unsafeMkAbstractHash (LBS.fromStrict bs')
 
 -- HasPrevBlock
 -- | Class for something that has previous block (lens to 'Hash' for this block).
