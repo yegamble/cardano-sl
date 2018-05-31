@@ -15158,6 +15158,7 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , cryptonite
 , data-default
+, deepseq
 , digest
 , extra
 , filelock
@@ -15207,6 +15208,7 @@ cardano-sl-util
 cborg
 cereal
 containers
+deepseq
 digest
 formatting
 half
@@ -19078,8 +19080,8 @@ version = "0.2.0.0";
 src = fetchgit {
 
 url = "https://github.com/well-typed/cborg";
-sha256 = "1w06annk6nm01brd60hzl15143cvjvsaam9lhwzpmppyvgb0cdyz";
-rev = "3d274c14ca3077c3a081ba7ad57c5182da65c8c1";
+sha256 = "1pz27j7gzngkjkf2smksqq61isy1ji61pjaz6mngwnk9ryr6aqa0";
+rev = "9220cefbf58617697edbbe51aba97bda79e5c53d";
 
 };
 postUnpack = "sourceRoot+=/cborg; echo source root reset to $sourceRoot";
