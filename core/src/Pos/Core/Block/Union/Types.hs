@@ -250,6 +250,7 @@ data BlockHeader attr
 deriving instance Generic (BlockHeader attr)
 deriving instance (Eq (GenesisBlockHeader attr), Eq (MainBlockHeader attr)) => Eq (BlockHeader attr)
 deriving instance (Show (GenesisBlockHeader attr), Show (MainBlockHeader attr)) => Show (BlockHeader attr)
+
 instance
     ( NFData (GenesisBlockHeader attr)
     , NFData (MainBlockHeader attr)

@@ -157,8 +157,7 @@ instance ( Typeable b
          , Bi (BodyProof b)
          , Bi (ConsensusData b)
          , Bi (ExtraHeaderData b)
-         ) =>
-         BiExtRep (GenericBlockHeader b) where
+         ) => BiExtRep (GenericBlockHeader b) where
     spliceExtRep bs h = h
         { _gbhDecoderAttr = (spliceExtRep' bs $ _gbhDecoderAttr h) }
     forgetExtRep h = h { _gbhDecoderAttr = DecoderAttrNone }
@@ -251,6 +250,7 @@ instance ( Typeable b
 
     decodeWithOffsets = do
         start <- peekByteOffset
+        enforceSize "GenericBlock" 3
         _gbHeader <- decodeWithOffsets
         _gbBody   <- decode
         _gbExtra  <- decode

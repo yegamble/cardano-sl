@@ -16,7 +16,6 @@ import           Universum
 import           Control.Lens (Getter, choosing, lens, to)
 import qualified Data.Text.Buildable as Buildable
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..))
 import           Pos.Core.Block.Genesis ()
 import           Pos.Core.Block.Main ()
@@ -31,7 +30,7 @@ import           Pos.Util.Some (Some)
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance Bi (BlockHeader attr) => Buildable (BlockHeader attr) where
+instance Buildable (BlockHeader attr) where
     build = \case
         BlockHeaderGenesis bhg -> Buildable.build bhg
         BlockHeaderMain    bhm -> Buildable.build bhm
@@ -87,7 +86,7 @@ instance HasEpochIndex (BlockHeader attr) where
 -- IsHeader
 ----------------------------------------------------------------------------
 
-instance Bi (BlockHeader attr) => IsHeader (BlockHeader attr)
+instance IsHeader (BlockHeader attr)
 
 ----------------------------------------------------------------------------
 -- HasPrevBlock
