@@ -1,5 +1,6 @@
-{-# LANGUAGE DataKinds          #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE StandaloneDeriving  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- the Getter instances
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
