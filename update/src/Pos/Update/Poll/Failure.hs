@@ -12,7 +12,8 @@ import           Formatting (bprint, build, int, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 
 import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData, Coin, EpochIndex,
-                     HeaderHash, NumSoftwareVersion, ScriptVersion, StakeholderId, coinF)
+                     HeaderHash, NumSoftwareVersion, ScriptVersion, StakeholderId, coinF,
+                     shortHeaderHashF)
 import           Pos.Core.Update (BlockVersionModifier, UpAttributes, UpId)
 import           Pos.Crypto (shortHashF)
 import           Pos.Infra.Reporting (MonadReporting, reportError)
@@ -170,7 +171,7 @@ instance Buildable PollVerFailure where
         bprint ("proposal "%shortHashF%" has unknown attributes "%build)
         puapUpId puapAttrs
     build (PollTipMismatch {..}) =
-        bprint ("tip we store in US mem-state ("%shortHashF%
+        bprint ("tip we store in US mem-state ("%shortHeaderHashF%
                 ") differs from the tip we store in DB ("%build%")")
         ptmTipMemory ptmTipDB
     build (PollInvalidUpdatePayload msg) =

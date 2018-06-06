@@ -34,7 +34,7 @@ import           Pos.Core.Chrono (OldestFirst (..))
 -- | Datatype used for the queue of blocks, produced by network streaming and
 -- then consumed by a continuation resonsible for writing blocks to store.
 -- StreamEnd signals end of stream.
-data StreamEntry = StreamEnd | StreamBlock !Block
+data StreamEntry attr = StreamEnd | StreamBlock !(Block attr)
 
 data DiffusionHealth = DiffusionHealth {
     dhStreamWriteQueue :: !Gauge -- Number of blocks stored in the block stream write queue
@@ -50,18 +50,18 @@ data Diffusion m = Diffusion
       getBlocks          :: NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> m (OldestFirst [] Block)
+                         -> m (OldestFirst [] (Block 'AttrExtRep))
     , streamBlocks       :: forall t .
                             NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> ((Word32, Maybe Gauge, TBQueue StreamEntry) -> m t)
+                         -> ((Word32, Maybe Gauge, TBQueue (StreamEntry 'AttrExtRep)) -> m t)
                          -> m (Maybe t)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
     , requestTip          :: m (Map NodeId (m (BlockHeader 'AttrExtRep)))
       -- | Announce a block header.
-    , announceBlockHeader :: forall attr. MainBlockHeader attr -> m ()
+    , announceBlockHeader :: MainBlockHeader 'AttrNone -> m ()
       -- | Returns a Bool iff at least one peer accepted the transaction.
       -- I believe it's for the benefit of wallets who wish to know that the
       -- transaction has a hope of making it into a block.

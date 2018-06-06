@@ -39,7 +39,7 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Limit (Limit, mlEither)
-import           Pos.Communication.BiP (biSerIO)
+import           Pos.Infra.Communication.BiP (biSerIO)
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg,
                                                            mlReqMsg, mlResMsg)
 import           Pos.Infra.Communication.Listener (listenerConv)

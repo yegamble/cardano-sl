@@ -40,6 +40,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates)
 import qualified Pos.Infra.Diffusion.Subscription.Status as Status (subscribing, subscribed,
                                                               terminated)
+import           Pos.Infra.Communication.BiP (biSerIO)
 import           Pos.Infra.Communication.Listener (listenerConv)
 import           Pos.Infra.Communication.Protocol (Conversation (..),
                                                    ConversationActions (..),
@@ -233,8 +234,8 @@ subscriptionEstablish middle keepalive sendActions peer = withConnectionTo sendA
     \_peerData -> NE.fromList
         -- Sort conversations in descending order based on their version so that
         -- the highest available version of the conversation is picked.
-        [ Conversation (convMsgSubscribe middle keepalive)
-        , Conversation (convMsgSubscribe1 middle)
+        [ Conversation biSerIO biSerIO (convMsgSubscribe middle keepalive)
+        , Conversation biSerIO biSerIO (convMsgSubscribe1 middle)
         ]
 
 convMsgSubscribe

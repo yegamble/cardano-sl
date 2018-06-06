@@ -19,9 +19,8 @@ import           Pos.Infra.Communication.Protocol (ConversationActions,
                                                    checkProtocolMagic,
                                                    checkingInSpecs,
                                                    messageCode)
-import           Pos.Binary.Infra ()
 import           Pos.Infra.Network.Types (Bucket)
-import           Pos.Communication.BiP (biSerIO)
+import           Pos.Infra.Communication.BiP (biSerIO)
 import           Pos.Util.Trace (Trace, Severity)
 
 -- TODO automatically provide a 'recvLimited' here by using the
