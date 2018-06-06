@@ -38,6 +38,7 @@ module Pos.DB.Class
        , MonadBlockDBRead
        , getDeserialized
        , getBlock
+       , getBlockWithExtRep
        , MonadDB (..)
 
          -- * GState
@@ -58,7 +59,7 @@ import           Data.Conduit (ConduitT, transPipe)
 import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class (Bi, DecoderAttrKind (..), decodeFull')
+import           Pos.Binary.Class (Bi, DecoderAttrKind (..), EitherExtRep (..), decodeFull')
 import           Pos.Core (Block, BlockHeader, BlockVersionData (..), EpochIndex, HasConfiguration,
                      HeaderHash, isBootstrapEra)
 import           Pos.DB.Error (DBError (DBMalformed))
@@ -137,6 +138,16 @@ getDeserialized getter x = getter x >>= \case
 
 getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe (Block 'AttrNone))
 getBlock = getDeserialized dbGetSerBlock
+
+getBlockWithExtRep :: MonadBlockDBRead m => HeaderHash -> m (Maybe (Block 'AttrExtRep))
+getBlockWithExtRep headerHash = do
+    mb <- dbGetSerBlock headerHash
+    case mb of
+        Nothing              -> pure Nothing
+        Just (Serialized bs) -> eitherToThrow
+             $ bimap DBMalformed (Just . runEitherExtRep . spliceExtRep bs)
+             $ decodeFull' decodeWithOffsets labelExtRep
+             $ bs
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.

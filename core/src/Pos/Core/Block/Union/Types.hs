@@ -13,7 +13,9 @@ module Pos.Core.Block.Union.Types
        , _BlockHeaderMain
        , eitherBlockHeader
        , choosingBlockHeader
+       , genericBlockHeaderDecoderAttr
        , Block
+       , blockDecoderAttr
 
        -- * GenesisBlockchain
        , GenesisBlockchain
@@ -305,8 +307,16 @@ choosingBlockHeader onGenesis onMain f = \case
     BlockHeaderGenesis bh -> BlockHeaderGenesis <$> onGenesis f bh
     BlockHeaderMain bh -> BlockHeaderMain <$> onMain f bh
 
+-- |
+-- Get `DecoderAttr` of `GenericBlockHeader` from a `BlockHeader`.
+genericBlockHeaderDecoderAttr :: BlockHeader attr -> DecoderAttr attr
+genericBlockHeaderDecoderAttr = eitherBlockHeader _gbhDecoderAttr _gbhDecoderAttr
+
 -- | Block.
 type Block (attr :: DecoderAttrKind) = Either (GenesisBlock attr) (MainBlock attr)
+
+blockDecoderAttr :: Block attr -> DecoderAttr attr
+blockDecoderAttr = either _gbDecoderAttr _gbDecoderAttr
 
 ----------------------------------------------------------------------------
 -- HeaderHash
