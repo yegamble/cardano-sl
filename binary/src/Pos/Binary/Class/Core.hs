@@ -68,6 +68,8 @@ import qualified Data.Vector.Generic as Vector.Generic
 import           Formatting (bprint, int, string, (%))
 import qualified GHC.Generics as G
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
+import           Test.QuickCheck (Arbitrary (..))
+
 
 -- | This function must match the one from 'Pos.Util.Util'. It is copied here
 -- to avoid a dependency and facilitate parallel builds.
@@ -136,6 +138,10 @@ instance Wrapped (DecoderAttr 'AttrExtRep) where
         unwrap :: DecoderAttr 'AttrExtRep -> ByteString
         unwrap (DecoderAttrExtRep bs) = bs
 
+instance Arbitrary (DecoderAttr 'AttrNone) where
+    arbitrary   = return DecoderAttrNone
+    shrink _    = []
+
 -- | Helper function useful when implementing `spliceExtRep`.
 spliceExtRep' :: ByteString -> DecoderAttr 'AttrOffsets -> DecoderAttr 'AttrExtRep
 spliceExtRep' bs (DecoderAttrOffsets n m) = DecoderAttrExtRep
@@ -163,10 +169,10 @@ class Typeable a => Bi a where
     label = show . typeRep
 
     encodeList :: [a] -> E.Encoding
-    encodeList = defaultEncodeList
+    encodeList = defaultEncodeList encode
 
     decodeList :: D.Decoder s [a]
-    decodeList = defaultDecodeList
+    decodeList = defaultDecodeList decode
 
 -- |
 -- Binary encoding / decoding based on cborg library with decoding external
@@ -177,23 +183,27 @@ class Typeable (a 'AttrOffsets) => BiExtRep (a :: DecoderAttrKind -> *) where
     -- | Recursively decode with attribute offsets.
     decodeWithOffsets   :: D.Decoder s (a 'AttrOffsets)
     -- | Recursively splice external representation from byte offsets.
+    -- TODO: maybe it should take lazy `ByteString`
     spliceExtRep        :: ByteString -> a 'AttrOffsets -> a 'AttrExtRep
     -- | Recursively forget external representation.
-    forgetExtRep        :: a attr -> a 'AttrNone
+    forgetExtRep        :: a (attr :: DecoderAttrKind) -> a 'AttrNone
+
+    labelExtRep :: Proxy (a 'AttrOffsets) -> Text
+    labelExtRep = show . typeRep
 
     default encodeExtRep :: Bi (a 'AttrNone) => a 'AttrExtRep -> E.Encoding
     encodeExtRep = encode . forgetExtRep
 
 -- | Default @'E.Encoding'@ for list types.
-defaultEncodeList :: Bi a => [a] -> E.Encoding
-defaultEncodeList xs = E.encodeListLenIndef
-                    <> Universum.foldr (\x r -> encode x <> r) E.encodeBreak xs
+defaultEncodeList :: (a -> E.Encoding) ->  [a] -> E.Encoding
+defaultEncodeList encoder xs = E.encodeListLenIndef
+                    <> Universum.foldr (\x r -> encoder x <> r) E.encodeBreak xs
 
 -- | Default @'D.Decoder'@ for list types.
-defaultDecodeList :: Bi a => D.Decoder s [a]
-defaultDecodeList = do
+defaultDecodeList :: D.Decoder s a -> D.Decoder s [a]
+defaultDecodeList decoder = do
     D.decodeListLenIndef
-    D.decodeSequenceLenIndef (flip (:)) [] reverse decode
+    D.decodeSequenceLenIndef (flip (:)) [] reverse decoder
 
 ----------------------------------------------------------------------------
 -- Primitive types
@@ -375,9 +385,9 @@ instance (Typeable f, Typeable g, BiExtRep f, BiExtRep g) => BiExtRep (EitherExt
     forgetExtRep = EitherExtRep . bimap forgetExtRep forgetExtRep . runEitherExtRep
 
 instance Bi a => Bi (NonEmpty a) where
-    encode = defaultEncodeList . toList
+    encode = defaultEncodeList encode . toList
     decode =
-        nonEmpty <$> defaultDecodeList >>= toCborError . \case
+        nonEmpty <$> defaultDecodeList decode >>= toCborError . \case
             Nothing -> Left "Expected a NonEmpty list, but an empty list was found!"
             Just xs -> Right xs
 

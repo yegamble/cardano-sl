@@ -1,5 +1,7 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Verification of headers and blocks, also chain integrity
 -- checks. Almost pure (requires leaders to be explicitly passed).
@@ -8,6 +10,7 @@ module Pos.Block.Logic.Integrity
        (
          -- * Header
          VerifyHeaderParams (..)
+       , verifyHeaderParams
        , verifyHeader
        , verifyHeaders
 
@@ -23,6 +26,7 @@ import           Control.Lens (ix)
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (VerificationRes (..), verifyGeneric)
+import           Unsafe.Coerce (unsafeCoerce)
 
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Update ()
@@ -38,7 +42,6 @@ import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Unsafe.Coerce (unsafeCoerce)
 
 ----------------------------------------------------------------------------
 -- Header
@@ -103,7 +106,7 @@ verifyFromEither txt (Right _)     = verifyGeneric [(True, txt)]
 verifyHeader
     :: ProtocolMagic
     -> VerifyHeaderParams
-    -> BlockHeader attr
+    -> BlockHeader (attr :: Bi.DecoderAttrKind)
     -> VerificationRes
 verifyHeader pm VerifyHeaderParams {..} h =
        verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader pm h)

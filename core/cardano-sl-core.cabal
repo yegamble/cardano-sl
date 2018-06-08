@@ -193,6 +193,7 @@ library
                      , memory
                      , mtl
                      , plutus-prototype
+                     , QuickCheck
                      , random
                      , reflection
                      , safe-exceptions

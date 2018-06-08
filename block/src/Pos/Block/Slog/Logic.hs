@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | This module does some hard work related to block processing
 -- logic, but not specific to any particular part of the
@@ -36,7 +37,7 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Logic.Types (VerifyBlocksContext (..))
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
-import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
+import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..), forgetBlundExtRep)
 import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam, difficultyL,
                      epochIndexL, flattenSlotId, headerHash, headerHashG, prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
@@ -124,10 +125,10 @@ type MonadSlogVerify ctx m =
 -- 2.  Call pure verification. If it fails, throw.
 -- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
-    :: MonadSlogVerify ctx m
+    :: forall ctx attr m . MonadSlogVerify ctx m
     => ProtocolMagic
     -> VerifyBlocksContext
-    -> OldestFirst NE Block
+    -> OldestFirst NE (Block attr)
     -> m (Either Text (OldestFirst NE SlogUndo))
 slogVerifyBlocks pm ctx blocks = runExceptT $ do
     let dataMustBeKnown = mustDataBeKnown (vbcBlockVersion ctx)
@@ -148,7 +149,7 @@ slogVerifyBlocks pm ctx blocks = runExceptT $ do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     -- Do pure block verification.
-    let blocksList :: OldestFirst [] Block
+    let blocksList :: OldestFirst [] (Block attr)
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
         verifyBlocks pm
@@ -217,7 +218,7 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 slogApplyBlocks
     :: MonadSlogApply ctx m
     => ShouldCallBListener
-    -> OldestFirst NE Blund
+    -> OldestFirst NE (Blund attr)
     -> m SomeBatchOp
 slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- Note: it's important to put blunds first. The invariant is that
@@ -225,7 +226,7 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- BlockDB. If program is interrupted after we put blunds and
     -- before we update GState, this invariant won't be violated. If
     -- we update GState first, this invariant may be violated.
-    putBlunds $ blunds ^. _OldestFirst
+    putBlunds $ fmap forgetBlundExtRep $ blunds ^. _OldestFirst
     -- If the program is interrupted at this point (after putting blunds
     -- in BlockDB), we will have garbage blunds in BlockDB, but it's not a
     -- problem.
@@ -286,7 +287,7 @@ slogRollbackBlocks ::
        MonadSlogApply ctx m
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
-    -> NewestFirst NE Blund
+    -> NewestFirst NE (Blund attr)
     -> m SomeBatchOp
 slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $

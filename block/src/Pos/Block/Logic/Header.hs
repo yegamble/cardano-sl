@@ -28,12 +28,15 @@ import           Serokell.Util.Verify (VerificationRes (..))
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader)
-import           Pos.Core (HeaderHash, ProtocolMagic, blkSecurityParam, bvdMaxHeaderSize,
-                           difficultyL, epochIndexL, getEpochOrSlot,
-                           headerHash, headerHashG, headerSlotL,
-                           prevBlockL)
-import           Pos.Core.Block (BlockHeader (..))
+import           Pos.Binary.Class (DecoderAttrKind (..))
+import           Pos.Block.Logic.Integrity (verifyHeaderParams, verifyHeader)
+import           Pos.Core.Block (BlockHeader (..), HeaderHash, headerHash, headerHashG,
+                     headerSlotL, prevBlockL)
+import           Pos.Core.Common (difficultyL)
+import           Pos.Core.Slotting (epochIndexL, getEpochOrSlot)
+import           Pos.Core.Configuration (blkSecurityParam)
+import           Pos.Core.Update (BlockVersionData (..))
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
@@ -75,7 +78,7 @@ classifyNewHeader
     , MonadDBRead m
     , MonadUnliftIO m
     )
-    => ProtocolMagic -> BlockHeader -> m ClassifyHeaderRes
+    => ProtocolMagic -> BlockHeader 'AttrExtRep -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader pm (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
@@ -107,22 +110,21 @@ classifyNewHeader pm (BlockHeaderMain header) = fmap (either identity identity) 
                 maybe (throwError $ CHUseless "Can't get leaders") pure =<<
                 lift (LrcDB.getLeadersForEpoch newHeaderEpoch)
             let vhp =
-                    VerifyHeaderParams
-                    { vhpPrevHeader = Just tipHeader
-                    -- We don't verify whether header is from future,
-                    -- because we already did it above. The principal
-                    -- difference is that currently header from future
-                    -- leads to 'CHUseless', but if we checked it
-                    -- inside 'verifyHeader' it would be 'CHUseless'.
-                    -- It's questionable though, maybe we will change
-                    -- this decision.
-                    , vhpCurrentSlot = Nothing
-                    , vhpLeaders = Just leaders
-                    , vhpMaxSize = Just maxBlockHeaderSize
-                    , vhpVerifyNoUnknown = False
-                    }
+                    verifyHeaderParams
+                        (Just tipHeader)
+                        -- We don't verify whether header is from future,
+                        -- because we already did it above. The principal
+                        -- difference is that currently header from future
+                        -- leads to 'CHUseless', but if we checked it
+                        -- inside 'verifyHeader' it would be 'CHUseless'.
+                        -- It's questionable though, maybe we will change
+                        -- this decision.
+                        Nothing
+                        (Just leaders)
+                        (Just maxBlockHeaderSize)
+                        False
             case verifyHeader pm vhp (BlockHeaderMain header) of
-                VerFailure errors -> throwError $ mkCHRinvalid (NE.toList errors)
+                VerFailure errors -> throwError $ mkCHRinvalid $ NE.toList errors
                 _                 -> pass
 
             dlgHeaderValid <- lift $ runDBCede $ dlgVerifyHeader header
@@ -140,10 +142,12 @@ classifyNewHeader pm (BlockHeaderMain header) = fmap (either identity identity) 
 
 -- | Result of multiple headers classification.
 data ClassifyHeadersRes
-    = CHsValid BlockHeader         -- ^ Header list can be applied,
-                                   --    LCA child attached.
-    | CHsUseless !Text             -- ^ Header is useless.
-    | CHsInvalid !Text             -- ^ Header is invalid.
+    = CHsValid (BlockHeader 'AttrNone)
+    -- ^ Header list can be applied,
+    | CHsUseless !Text
+    -- ^ Header is useless.
+    | CHsInvalid !Text
+    -- ^ Header is invalid.
 
 deriving instance Show ClassifyHeadersRes
 
@@ -163,7 +167,7 @@ getHeadersFromManyTo ::
     -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
                            --   in any particular order
     -> Maybe HeaderHash
-    -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))
+    -> m (Either GetHeadersFromManyToError (NewestFirst NE (BlockHeader 'AttrNone)))
 getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
@@ -216,7 +220,7 @@ getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
-    (allHeaders :: NewestFirst [] BlockHeader) <-
+    (allHeaders :: NewestFirst [] (BlockHeader 'AttrNone)) <-
         -- loadHeadersByDepth always returns nonempty list unless you
         -- pass depth 0 (we pass k+1). It throws if upToReal is
         -- absent. So it either throws or returns nonempty.

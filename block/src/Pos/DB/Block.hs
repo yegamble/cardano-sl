@@ -45,9 +45,8 @@ import           System.FilePath ((</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
 import           System.IO.Error (IOError, isDoesNotExistError)
 
-import           Pos.Binary.Class (DecoderAttrKind (..))
+import           Pos.Binary.Class (Bi (..), DecoderAttrKind (..), decodeFull', serialize')
 import           Pos.Binary.Block.Types ()
-import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (HeaderHash, headerHash, headerHashHexF)
@@ -120,7 +119,7 @@ getSerializedBlock hh = do
       case mbs of
         Nothing -> pure Nothing
         Just ser -> eitherToThrow $ bimap DBMalformed (Just . fst)
-                    $ decodeFull' @(ByteString, ByteString) ser
+                    $ decodeFull' @(ByteString, ByteString) decode label ser
     else fmap fst <$> consolidateBlund hh
 
 -- Get serialization of an undo data for block with given hash from Block DB.
@@ -134,7 +133,7 @@ getSerializedUndo  hh = do
       case mbs of
         Nothing -> pure Nothing
         Just ser -> eitherToThrow $ bimap DBMalformed (Just . snd)
-                    $ decodeFull' @(ByteString, ByteString) ser
+                    $ decodeFull' @(ByteString, ByteString) decode label ser
     else fmap snd <$> consolidateBlund hh
 
 -- | Read independent block and undo data and consolidate them into a single
@@ -216,7 +215,7 @@ dbGetSerBlockPureDefault
 dbGetSerBlockPureDefault h = do
     (serblund :: Maybe ByteString) <-
         view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
-    case decodeFull' @(ByteString, ByteString) <$> serblund of
+    case decodeFull' @(ByteString, ByteString) decode label <$> serblund of
         Nothing        -> pure Nothing
         Just (Left e)  -> throwM (DBMalformed e)
         Just (Right v) -> pure . Just . Serialized $ fst v
@@ -228,7 +227,7 @@ dbGetSerUndoPureDefault
 dbGetSerUndoPureDefault h =  do
     (serblund :: Maybe ByteString) <-
         view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
-    case decodeFull' @(ByteString, ByteString) <$> serblund of
+    case decodeFull' @(ByteString, ByteString) decode label <$> serblund of
         Nothing        -> pure Nothing
         Just (Left e)  -> throwM (DBMalformed e)
         Just (Right v) -> pure . Just . Serialized $ snd v

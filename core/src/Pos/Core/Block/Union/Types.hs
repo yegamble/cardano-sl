@@ -100,9 +100,9 @@ data GenesisBlockchain
 type GenesisBlockHeader attr = GenericBlockHeader GenesisBlockchain attr
 
 -- | Genesis block parametrized by 'GenesisBlockchain'.
-type GenesisBlock attr = GenericBlock GenesisBlockchain attr
+type GenesisBlock (attr :: DecoderAttrKind) = GenericBlock GenesisBlockchain attr
 
-instance Blockchain GenesisBlockchain attr where
+instance Blockchain GenesisBlockchain (attr :: DecoderAttrKind) where
     type BodyProof GenesisBlockchain = GenesisProof
     type ConsensusData GenesisBlockchain = GenesisConsensusData
     type BBlockHeader GenesisBlockchain attr = Hash (BlockHeader attr)
@@ -125,11 +125,11 @@ instance Blockchain GenesisBlockchain attr where
 data MainBlockchain
 
 -- | Header of generic main block.
-type MainBlockHeader attr = GenericBlockHeader MainBlockchain attr
+type MainBlockHeader (attr :: DecoderAttrKind) = GenericBlockHeader MainBlockchain attr
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
-type MainBlock attr = GenericBlock MainBlockchain attr
+type MainBlock (attr :: DecoderAttrKind) = GenericBlock MainBlockchain attr
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices
@@ -247,7 +247,7 @@ instance ( Bi MainProof ) =>
 ----------------------------------------------------------------------------
 
 -- | Either header of ordinary main block or genesis block.
-data BlockHeader attr
+data BlockHeader (attr :: DecoderAttrKind)
     = BlockHeaderGenesis (GenesisBlockHeader attr)
     | BlockHeaderMain (MainBlockHeader attr)
 

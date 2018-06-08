@@ -260,6 +260,32 @@ instance SafeCopy GenesisBody where
         contain $
         do safePut _gbLeaders
 
+instance SafeCopy (RedeemSignature a) where
+    putCopy (RedeemSignature sig) = contain $ safePut sig
+    getCopy = contain $ RedeemSignature <$> safeGet
+
+instance SafeCopy (Signature a) where
+    putCopy (Signature sig) = contain $ safePut sig
+    getCopy = contain $ Signature <$> safeGet
+
+instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
+    putCopy (Signed v s) = contain $ safePut (Bi.serialize' (v,s))
+    getCopy = contain $ do
+        bs <- safeGet
+        case Bi.decodeFull decode label bs of
+            Left err    -> cerealError $ "getCopy@SafeCopy: " <> err
+            Right (v,s) -> pure $ Signed v s
+
+instance SafeCopy (ProxyCert w) where
+    putCopy (ProxyCert sig) = contain $ safePut sig
+    getCopy = contain $ ProxyCert <$> safeGet
+
+instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
+    putCopy ProxySignature{..} = contain $ do
+        safePut psigPsk
+        safePut psigSig
+    getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
+
 instance (Bi (MerkleRoot a), Typeable a) => SafeCopy (MerkleRoot a) where
     getCopy = getCopyBi
     putCopy = putCopyBi

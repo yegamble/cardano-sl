@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds  #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Server which deals with blocks processing.
@@ -20,16 +21,17 @@ import           Mockable (delay)
 import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
+import           Pos.Binary.Class (BiExtRep (..), DecoderAttrKind (..))
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
 import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks,
                                           triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult, shortHeaderHashF)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
-import           Pos.Crypto (ProtocolMagic, shortHashF)
+import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion, StreamEntry (..))
@@ -128,7 +130,7 @@ retrievalWorker pm diffusion = do
             _ -> do
                 logDebug "handleAlternative: considering header for recovery mode"
                 -- CSL-1514
-                updateRecoveryHeader nodeId header
+                updateRecoveryHeader nodeId (forgetExtRep header)
 
     -- Squelch the exception and continue. Used with 'handleAny' from
     -- safe-exceptions so it will let async exceptions pass.
@@ -154,7 +156,7 @@ retrievalWorker pm diffusion = do
 
     -- Recovery handling. We assume that header in the recovery variable is
     -- appropriate and just query headers/blocks.
-    handleRecovery :: NodeId -> BlockHeader -> m ()
+    handleRecovery :: NodeId -> BlockHeader attr -> m ()
     handleRecovery nodeId rHeader = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will fetch more blocks"
@@ -172,12 +174,12 @@ retrievalWorker pm diffusion = do
 
 -- | Result of attempt to update recovery header.
 data UpdateRecoveryResult ssc
-    = RecoveryStarted NodeId BlockHeader
+    = RecoveryStarted NodeId (BlockHeader 'AttrNone)
       -- ^ Recovery header was absent, so we've set it.
-    | RecoveryShifted NodeId BlockHeader NodeId BlockHeader
+    | RecoveryShifted NodeId (BlockHeader 'AttrNone) NodeId (BlockHeader 'AttrNone)
       -- ^ Header was present, but we've replaced it with another
       -- (more difficult) one.
-    | RecoveryContinued NodeId BlockHeader
+    | RecoveryContinued NodeId (BlockHeader 'AttrNone)
       -- ^ Header is good, but is irrelevant, so recovery variable is
       -- unchanged.
 
@@ -188,7 +190,7 @@ data UpdateRecoveryResult ssc
 updateRecoveryHeader
     :: BlockWorkMode ctx m
     => NodeId
-    -> BlockHeader
+    -> BlockHeader 'AttrNone
     -> m ()
 updateRecoveryHeader nodeId hdr = do
     recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -284,10 +286,10 @@ getProcessBlocks pm diffusion nodeId desired checkpoints = do
     case OldestFirst <$> nonEmpty (getOldestFirst result) of
       Nothing -> do
           let msg = sformat ("getProcessBlocks: diffusion returned []"%
-                             " on request to fetch "%shortHashF%" from peer "%build)
+                             " on request to fetch "%shortHeaderHashF%" from peer "%build)
                             desired nodeId
           throwM $ DialogUnexpected msg
-      Just (blocks :: OldestFirst NE Block) -> do
+      Just (blocks :: OldestFirst NE (Block 'AttrExtRep)) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
@@ -335,7 +337,7 @@ streamProcessBlocks pm diffusion nodeId desired checkpoints = do
              logInfo "streaming done"
              return ()
   where
-    loop :: Word32 -> [Block] -> (Word32, Maybe Gauge.Gauge, TBQueue StreamEntry) -> m ()
+    loop :: Word32 -> [Block 'AttrExtRep] -> (Word32, Maybe Gauge.Gauge, TBQueue (StreamEntry 'AttrExtRep)) -> m ()
     loop !n !blocks (streamWindow, wqgM, blockChan) = do
         streamEntry <- atomically $ readTBQueue blockChan
         case streamEntry of
@@ -344,7 +346,7 @@ streamProcessBlocks pm diffusion nodeId desired checkpoints = do
               let batchSize = min 64 streamWindow
               let n' = n + 1
               when (n' `mod` 256 == 0) $
-                     logDebug $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
+                     logDebug $ sformat ("Read block "%shortHeaderHashF%" difficulty "%int) (headerHash block)
                                         (block ^. difficultyL)
               case wqgM of
                    Nothing -> pure ()

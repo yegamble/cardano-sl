@@ -4,6 +4,7 @@ module Pos.DB.Block.Load
        (
        -- * Load data
          loadBlundsWhile
+       , loadBlundsWithExtRepWhile
        , loadBlundsByDepth
        , loadBlocksWhile
        , loadHeadersWhile
@@ -11,6 +12,7 @@ module Pos.DB.Block.Load
 
        -- * Load data from tip
        , loadBlundsFromTipWhile
+       , loadBlundsWithExtRepFromTipWhile
        , loadBlundsFromTipByDepth
        ) where
 
@@ -22,7 +24,7 @@ import           Formatting (sformat, (%))
 import           Pos.Binary.Class (DecoderAttrKind (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Core (BlockCount, HasDifficulty (difficultyL), HasGenesisHash,
-                     HasPrevBlock (prevBlockL), HeaderHash)
+                     HasPrevBlock (prevBlockL), HeaderHash, HasGenesisHash)
 import           Pos.Core.Block (Block, BlockHeader, shortHeaderHashF)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Configuration (genesisHeaderHash)
