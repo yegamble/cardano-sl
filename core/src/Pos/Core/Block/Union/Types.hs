@@ -58,12 +58,13 @@ import           Codec.CBOR.Decoding (decodeWordCanonical)
 import           Codec.CBOR.Encoding (encodeWord)
 import           Control.Lens (Getter, LensLike', choosing, makePrisms, to)
 import           Crypto.Hash (digestFromByteString)
+import           Data.Aeson (ToJSON (..))
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text.Buildable as Buildable
 import qualified Data.Text.Lazy.Builder as Builder
-import           Formatting (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Formatting (Format, bprint, build, fitLeft, later, sformat, (%), (%.))
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), BiExtRep (..), DecoderAttrKind (..),
@@ -247,6 +248,12 @@ instance ( Bi MainProof ) =>
 ----------------------------------------------------------------------------
 
 -- | Either header of ordinary main block or genesis block.
+--
+-- TODO: It is `BlockHeader` that should carry `DecoderAttr` info; but the
+-- current design (which  I think is wrong) is that we compute hash from
+-- GenesisBlockHeader wrapping it with `BlockHeaderGenesis` or
+-- `BlockHeaderMain`.  But the changes to do this properly would require
+-- a polymorphic `GenericBlock` that could take different header types.
 data BlockHeader (attr :: DecoderAttrKind)
     = BlockHeaderGenesis (GenesisBlockHeader attr)
     | BlockHeaderMain (MainBlockHeader attr)
@@ -339,6 +346,10 @@ deriving instance NFData HeaderHash
 
 instance Buildable HeaderHash where
     build (HeaderHash (AbstractHash h)) = Builder.fromString $ show h
+
+-- Instance compatible with `AbstractHash` `ToJSON` instance.
+instance ToJSON HeaderHash where
+    toJSON = toJSON . sformat headerHashF
 
 -- | Specialized formatter for 'HeaderHash'.
 headerHashHexF :: Format r (HeaderHash -> r)

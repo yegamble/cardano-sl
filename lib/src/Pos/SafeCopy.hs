@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds            #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | SafeCopy serialization of the world, required for wallet. ☕
@@ -17,7 +18,7 @@ import qualified PlutusCore.Term as PLCore
 import           Serokell.AcidState.Instances ()
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), DecoderAttrKind (..), DecoderAttr (..))
 import           Pos.Binary.SafeCopy (getCopyBi, putCopyBi)
 import           Pos.Core.Block
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
@@ -139,7 +140,7 @@ instance ( SafeCopy (BHeaderHash b)
          , SafeCopy (ConsensusData b)
          , SafeCopy (ExtraHeaderData b)
          ) =>
-         SafeCopy (GenericBlockHeader b) where
+         SafeCopy (GenericBlockHeader b 'AttrNone) where
     getCopy =
         contain $
         do _gbhProtocolMagic <- safeGet
@@ -147,6 +148,7 @@ instance ( SafeCopy (BHeaderHash b)
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
+           let _gbhDecoderAttr = DecoderAttrNone
            return $! UnsafeGenericBlockHeader {..}
     putCopy UnsafeGenericBlockHeader {..} =
         contain $
@@ -163,12 +165,13 @@ instance ( SafeCopy (BHeaderHash b)
          , SafeCopy (Body b)
          , SafeCopy (ExtraBodyData b)
          ) =>
-         SafeCopy (GenericBlock b) where
+         SafeCopy (GenericBlock b 'AttrNone) where
     getCopy =
         contain $
         do _gbHeader <- safeGet
            _gbBody <- safeGet
            _gbExtra <- safeGet
+           let _gbDecoderAttr = DecoderAttrNone
            return $! UnsafeGenericBlock {..}
     putCopy UnsafeGenericBlock {..} =
         contain $
@@ -260,32 +263,6 @@ instance SafeCopy GenesisBody where
         contain $
         do safePut _gbLeaders
 
-instance SafeCopy (RedeemSignature a) where
-    putCopy (RedeemSignature sig) = contain $ safePut sig
-    getCopy = contain $ RedeemSignature <$> safeGet
-
-instance SafeCopy (Signature a) where
-    putCopy (Signature sig) = contain $ safePut sig
-    getCopy = contain $ Signature <$> safeGet
-
-instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
-    putCopy (Signed v s) = contain $ safePut (Bi.serialize' (v,s))
-    getCopy = contain $ do
-        bs <- safeGet
-        case Bi.decodeFull decode label bs of
-            Left err    -> cerealError $ "getCopy@SafeCopy: " <> err
-            Right (v,s) -> pure $ Signed v s
-
-instance SafeCopy (ProxyCert w) where
-    putCopy (ProxyCert sig) = contain $ safePut sig
-    getCopy = contain $ ProxyCert <$> safeGet
-
-instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
-    putCopy ProxySignature{..} = contain $ do
-        safePut psigPsk
-        safePut psigSig
-    getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
-
 instance (Bi (MerkleRoot a), Typeable a) => SafeCopy (MerkleRoot a) where
     getCopy = getCopyBi
     putCopy = putCopyBi
@@ -308,6 +285,10 @@ instance SafeCopy h => SafeCopy (Attributes h) where
         contain $
         do safePut attrData
            safePut attrRemain
+
+instance SafeCopy HeaderHash where
+    putCopy = putCopyBi
+    getCopy = getCopyBi
 
 instance Cereal.Serialize Byte where
     get = fromBytes <$> Cereal.get

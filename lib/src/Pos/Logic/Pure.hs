@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 -- | A pure logic layer. As such, it does nothing, but won't crash.
 
 module Pos.Logic.Pure
@@ -11,7 +12,7 @@ import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
 import           Data.Default (def)
 
-import           Pos.Binary.Class (serialize')
+import           Pos.Binary.Class (DecoderAttrKind (..), DecoderAttr (..), serialize')
 import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
                            BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
                            GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
@@ -20,7 +21,7 @@ import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockV
 import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
                                  MainBlockHeader, MainBlockchain, MainBody (..),
                                  MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..))
+                                 MainExtraHeaderData (..), MainProof (..), anyHeaderHash)
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
@@ -126,17 +127,18 @@ blockVersionData = BlockVersionData
 -- *invalid* but *well-formed* blocks.
 
 -- | This block is always given by 'getBlock' and 'getTip'
-block :: Block
+block :: Block 'AttrNone
 block = Right mainBlock
 
 serializedBlock :: SerializedBlock
 serializedBlock = Serialized $ serialize' block
 
-mainBlock :: MainBlock
+mainBlock :: MainBlock 'AttrNone
 mainBlock = UnsafeGenericBlock
-    { _gbHeader = mainBlockHeader
-    , _gbBody   = blockBody
-    , _gbExtra  = extraBodyData
+    { _gbHeader      = mainBlockHeader
+    , _gbBody        = blockBody
+    , _gbExtra       = extraBodyData
+    , _gbDecoderAttr = DecoderAttrNone
     }
 
 blockBody :: MainBody
@@ -175,20 +177,21 @@ extraBodyData = MainExtraBodyData
           }
     }
 
-blockHeader :: BlockHeader
+blockHeader :: BlockHeader 'AttrNone
 blockHeader = BlockHeaderMain mainBlockHeader
 
-mainBlockHeader :: MainBlockHeader
+mainBlockHeader :: MainBlockHeader 'AttrNone
 mainBlockHeader = UnsafeGenericBlockHeader
     { _gbhProtocolMagic = protocolMagic
-    , _gbhPrevBlock = mainBlockHeaderHash
-    , _gbhBodyProof = bodyProof
-    , _gbhConsensus = consensusData
-    , _gbhExtra     = extraHeaderData
+    , _gbhPrevBlock   = mainBlockHeaderHash
+    , _gbhBodyProof   = bodyProof
+    , _gbhConsensus   = consensusData
+    , _gbhExtra       = extraHeaderData
+    , _gbhDecoderAttr = DecoderAttrNone
     }
 
 mainBlockHeaderHash :: HeaderHash
-mainBlockHeaderHash = unsafeMkAbstractHash mempty
+mainBlockHeaderHash = anyHeaderHash $ unsafeMkAbstractHash mempty
 
 bodyProof :: MainProof
 bodyProof = MainProof

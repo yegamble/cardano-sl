@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE DataKinds                 #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
@@ -21,6 +22,7 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..))
 
+import           Pos.Binary.Class (DecoderAttrKind (..))
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Arbitrary.Ssc ()
@@ -87,16 +89,16 @@ spec = withDefConfiguration $ \_ -> do
                 describe "Block network types" $ modifyMaxSuccess (min 10) $ do
                     binaryTest @BT.MsgGetHeaders
                     binaryTest @BT.MsgGetBlocks
-                    binaryTest @BT.MsgHeaders
-                    binaryTest @BT.MsgBlock
+                    binaryTest @(BT.MsgHeaders 'AttrNone)
+                    binaryTest @(BT.MsgBlock 'AttrNone)
                     binaryTest @BT.MsgStream
-                    binaryTest @BT.MsgStreamBlock
+                    binaryTest @(BT.MsgStreamBlock 'AttrNone)
                 describe "Blockchains and blockheaders" $ do
                     modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
                         describe "GenesisBlockHeader" $ do
-                            binaryTest @BT.GenesisBlockHeader
+                            binaryTest @(BT.GenesisBlockHeader 'AttrNone)
                         describe "MainBlockHeader" $ do
-                            binaryTest @BT.MainBlockHeader
+                            binaryTest @(BT.MainBlockHeader 'AttrNone)
                     describe "GenesisBlockchain" $ do
                         describe "BodyProof" $ do
                             binaryTest @BT.GenesisExtraHeaderData

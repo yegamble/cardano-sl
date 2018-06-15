@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds  #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Specification of Pos.Core.Block and Pos.Block.Pure.
@@ -8,14 +9,14 @@ module Test.Pos.Types.BlockSpec
 
 import           Universum
 
-import           Serokell.Util (isVerSuccess)
+import           Serokell.Util (VerificationRes (..), isVerSuccess)
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, (===), (==>))
 
-import           Pos.Binary (Bi)
+import           Pos.Binary (Bi, DecoderAttrKind (..), DecoderAttr (..), fillExtRep)
 import qualified Pos.Block.Logic.Integrity as T
-import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
+import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash, genesisHeaderHash)
 import qualified Pos.Core as T
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
@@ -55,7 +56,7 @@ spec = withDefConfiguration $ \_ ->
         "Successfully verifies a correct chain of block headers"
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
     emptyHeaderChain
-        :: NewestFirst [] T.BlockHeader
+        :: NewestFirst [] (T.BlockHeader 'AttrExtRep)
         -> Spec
     emptyHeaderChain l =
         it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders dummyProtocolMagic Nothing l
@@ -68,13 +69,13 @@ spec = withDefConfiguration $ \_ ->
 
 genesisHeaderFormation
     :: HasConfiguration
-    => Maybe T.BlockHeader
+    => Maybe (T.BlockHeader 'AttrNone)
     -> T.EpochIndex
     -> T.GenesisBody
     -> Property
 genesisHeaderFormation prevHeader epoch body = header === manualHeader
   where
-    header = T.mkGenesisHeader
+    header = T.mkGenesisHeader'
         dummyProtocolMagic
         (maybe (Left (GenesisHash genesisHash)) Right prevHeader)
         epoch
@@ -85,8 +86,9 @@ genesisHeaderFormation prevHeader epoch body = header === manualHeader
         , T._gbhBodyProof     = proof
         , T._gbhConsensus     = consensus h proof
         , T._gbhExtra         = T.GenesisExtraHeaderData $ mkAttributes ()
+        , T._gbhDecoderAttr = DecoderAttrNone
         }
-    h          = maybe genesisHash T.headerHash prevHeader
+    h          = maybe genesisHeaderHash T.headerHash prevHeader
     proof      = T.mkBodyProof @T.GenesisBlockchain body
     difficulty = maybe 0 (view T.difficultyL) prevHeader
     consensus _ _ = T.GenesisConsensusData
@@ -96,7 +98,7 @@ genesisHeaderFormation prevHeader epoch body = header === manualHeader
 
 mainHeaderFormation
     :: HasConfiguration
-    => Maybe T.BlockHeader
+    => Maybe (T.BlockHeader 'AttrNone)
     -> T.SlotId
     -> Either SecretKey (SecretKey, SecretKey, Bool)
     -> T.MainBody
@@ -107,7 +109,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
   where
     correctSigner (Left  _        ) = True
     correctSigner (Right (i, d, _)) = i /= d
-    header = T.mkGenericHeader @T.MainBlockchain dummyProtocolMagic
+    header = T.mkGenericHeader' @T.MainBlockchain dummyProtocolMagic
                                                  prevHash
                                                  body
                                                  consensus
@@ -119,8 +121,9 @@ mainHeaderFormation prevHeader slotId signer body extra =
         , T._gbhBodyProof = proof
         , T._gbhConsensus = consensus proof
         , T._gbhExtra = extra
+        , T._gbhDecoderAttr = DecoderAttrNone
         }
-    prevHash = maybe genesisHash T.headerHash prevHeader
+    prevHash = maybe genesisHeaderHash T.headerHash prevHeader
     proof = T.mkBodyProof @T.MainBlockchain body
     (sk, pSk) = either (, Nothing) mkProxySk signer
     mkProxySk (issuerSK, delegateSK, isSigEpoch) =
@@ -171,6 +174,8 @@ validateBadProtocolMagicMainHeader (T.getHAndP -> (params, header)) =
             T.BlockHeaderMain h    -> T.BlockHeaderMain    (h { T._gbhProtocolMagic = protocolMagic' })
     in  not $ isVerSuccess $ T.verifyHeader dummyProtocolMagic params header'
 
-validateGoodHeaderChain :: T.BlockHeaderList -> Bool
-validateGoodHeaderChain (T.BHL (l, _)) =
-    isVerSuccess $ T.verifyHeaders dummyProtocolMagic Nothing (NewestFirst l)
+validateGoodHeaderChain :: T.BlockHeaderList -> Property
+validateGoodHeaderChain (T.BHL (headers, _)) =
+    -- Throw an error if `fillExtRep` fails.
+    let res = T.verifyHeaders dummyProtocolMagic Nothing (NewestFirst $ map (either (error . ("fillExtRep: " <>)) identity . fillExtRep) $ headers)
+    in res === VerSuccess

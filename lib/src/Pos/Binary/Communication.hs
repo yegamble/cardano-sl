@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds      #-}
 {-# LANGUAGE BinaryLiterals #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -15,9 +16,11 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Word (Word32)
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
-                     decodeUnknownCborDataItem, deriveSimpleBi, encodeKnownCborDataItem,
-                     encodeListLen, encodeUnknownCborDataItem, enforceSize, serialize, serialize')
+import           Pos.Binary.Class (Bi (..), BiExtRep (..), Cons (..), Field (..),
+                     DecoderAttrKind (..), decodeKnownCborDataItem,
+                     decodeUnknownCborDataItem, deriveSimpleBi,
+                     encodeKnownCborDataItem, encodeListLen, encodeUnknownCborDataItem,
+                     enforceSize, runEitherExtRep, runNonEmptyExtRep, serialize, serialize')
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                      MsgHeaders (..), MsgSerializedBlock (..), MsgStream (..), MsgStreamBlock (..),
@@ -26,6 +29,7 @@ import           Pos.Core (BlockVersion, HeaderHash)
 import           Pos.DB.Class (Serialized (..))
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                      MsgSubscribe (..), MsgSubscribe1 (..), VerInfo (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component
@@ -46,7 +50,7 @@ deriveSimpleBi ''MsgGetBlocks [
         Field [| mgbTo   :: HeaderHash |]
     ]]
 
-instance Bi MsgHeaders where
+instance Bi (MsgHeaders 'AttrNone) where
     encode = \case
         (MsgHeaders b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoHeaders t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -58,7 +62,20 @@ instance Bi MsgHeaders where
             1 -> MsgNoHeaders <$> decode
             t -> cborError $ "MsgHeaders wrong tag: " <> show t
 
-instance Bi MsgBlock where
+instance BiExtRep MsgHeaders where
+    decodeWithOffsets = do
+        enforceSize "MsgHeaders" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgHeaders . NewestFirst . runNonEmptyExtRep <$> decodeWithOffsets
+            1 -> MsgNoHeaders <$> decode
+            t -> cborError $ "MsgHeaders wrong tag: " <> show t
+    spliceExtRep bs (MsgHeaders hs)  = MsgHeaders $ fmap (spliceExtRep bs) hs
+    spliceExtRep _  (MsgNoHeaders t) = MsgNoHeaders t
+    forgetExtRep (MsgHeaders hs)  = MsgHeaders $ fmap forgetExtRep hs
+    forgetExtRep (MsgNoHeaders t) = MsgNoHeaders t
+
+instance Bi (MsgBlock 'AttrNone) where
     encode = \case
         (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -70,13 +87,26 @@ instance Bi MsgBlock where
             1 -> MsgNoBlock <$> decode
             t -> cborError $ "MsgBlock wrong tag: " <> show t
 
+instance BiExtRep MsgBlock where
+    decodeWithOffsets = do
+        enforceSize "MsgBlock" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgBlock . runEitherExtRep <$> decodeWithOffsets
+            1 -> MsgNoBlock <$> decode
+            t -> cborError $ "MsgBlock wrong tag: " <> show t
+    spliceExtRep bs (MsgBlock blk) = MsgBlock $ bimap (spliceExtRep bs) (spliceExtRep bs) blk
+    spliceExtRep _  (MsgNoBlock t) = MsgNoBlock t
+    forgetExtRep (MsgBlock blk) = MsgBlock $ bimap forgetExtRep forgetExtRep blk
+    forgetExtRep (MsgNoBlock t) = MsgNoBlock t
+
 -- Serialize `MsgSerializedBlock` with the property
 -- ```
 -- serialize (MsgBlock b) = serializeMsgSerializedBlock (MsgSerializedBlock $ serialize b)
 -- ```
 serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
 serializeMsgSerializedBlock (MsgSerializedBlock b)   = "\x82\x0" <> unSerialized b
-serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
+serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t :: MsgBlock 'AttrNone)
 
 -- Serialize `MsgSerializedBlock` with the property
 -- ```
@@ -84,7 +114,7 @@ serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
 -- ```
 serializeMsgStreamBlock :: MsgSerializedBlock -> LBS.ByteString
 serializeMsgStreamBlock (MsgSerializedBlock b)   = "\x82\x0" <> LBS.fromStrict (unSerialized b)
-serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t)
+serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t :: MsgStreamBlock 'AttrNone)
 
 deriveSimpleBi ''MsgStreamStart [
     Cons 'MsgStreamStart [
@@ -110,7 +140,7 @@ instance Bi MsgStream where
             1 -> MsgUpdate <$> decode
             t -> cborError $ "MsgStream wrong tag: " <> show t
 
-instance Bi MsgStreamBlock where
+instance Bi (MsgStreamBlock 'AttrNone) where
     encode = \case
         (MsgStreamBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgStreamNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -125,6 +155,24 @@ instance Bi MsgStreamBlock where
                  (_ :: Word8 )<- decode
                  pure MsgStreamEnd
             t -> cborError $ "MsgStreamBlock wrong tag: " <> show t
+
+instance BiExtRep MsgStreamBlock where
+    decodeWithOffsets = do
+        enforceSize "MsgBlock" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgStreamBlock . runEitherExtRep <$> decodeWithOffsets
+            1 -> MsgStreamNoBlock <$> decode
+            2 -> do
+                 (_ :: Word8 )<- decode
+                 pure MsgStreamEnd
+            t -> cborError $ "MsgStreamBlock wrong tag: " <> show t
+    spliceExtRep bs (MsgStreamBlock blk) = MsgStreamBlock $ bimap (spliceExtRep bs) (spliceExtRep bs) blk
+    spliceExtRep _  (MsgStreamNoBlock t) = MsgStreamNoBlock t
+    spliceExtRep _  MsgStreamEnd         = MsgStreamEnd
+    forgetExtRep (MsgStreamBlock blk) = MsgStreamBlock $ bimap forgetExtRep forgetExtRep blk
+    forgetExtRep (MsgStreamNoBlock t) = MsgStreamNoBlock t
+    forgetExtRep MsgStreamEnd         = MsgStreamEnd
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.
