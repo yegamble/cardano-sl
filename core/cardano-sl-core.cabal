@@ -278,7 +278,9 @@ test-suite test
                        Test.Pos.Core.Arbitrary.Unsafe
 
   build-depends:       base
+                     , base16-bytestring
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-binary-test
                      , cardano-sl-core
@@ -289,6 +291,7 @@ test-suite test
                      , containers
                      , formatting
                      , generic-arbitrary
+                     , hedgehog
                      , hspec
                      , hedgehog
                      , QuickCheck
@@ -303,7 +306,7 @@ test-suite test
 
   ghc-options:         -threaded
                        -rtsopts
-                       -Wall
+
 
   -- linker speed up for linux
   if os(linux)
