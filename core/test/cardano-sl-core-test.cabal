@@ -84,3 +84,4 @@ library
 
   ghc-options:
                        -O2
+                       -Wall
