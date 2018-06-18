@@ -86,13 +86,15 @@ let
       # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
+      cardano-sl-wallet-new = addGitRev (buildWithBenchmarks  super.cardano-sl-wallet-new);
+      cardano-sl-wallet-new-static = justStaticExecutables self.cardano-sl-wallet-new;
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
       })));
 
       cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
+      cardano-sl-faucet-static = justStaticExecutables self.cardano-sl-faucet;
       cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
