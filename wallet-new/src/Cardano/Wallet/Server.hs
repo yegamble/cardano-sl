@@ -17,12 +17,15 @@ import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Mockable
 
 -- | Serve the REST interface to the wallet
 --
 -- NOTE: Unlike the legacy server, the handlers will not run in a special
 -- Cardano monad because they just interfact with the Wallet object.
-walletServer :: ActiveWalletLayer m
+--
+-- TODO: make this polymorphic on Production, with something like UnliftIO.
+walletServer :: ActiveWalletLayer Production
              -> Server WalletAPI
 walletServer w = v0Handler :<|> v1Handler
   where
@@ -34,7 +37,8 @@ walletServer w = v0Handler :<|> v1Handler
     v0Handler    = error "V0 API no longer supported"
     v1Handler    = V1.handlers w
 
-walletDevServer :: ActiveWalletLayer m
+-- TODO: make this polymorphic on Production, with something like UnliftIO.
+walletDevServer :: ActiveWalletLayer Production
              -> RunMode
              -> Server WalletDevAPI
 walletDevServer w runMode = devHandler :<|> walletHandler

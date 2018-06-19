@@ -20,8 +20,8 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
-                                              NewAccount (..), NewWallet (..), V1 (..), Wallet,
-                                              WalletId, WalletOperation (..), WalletUpdate)
+                                              NewAccount (..), NewWallet (..), Transaction, V1 (..),
+                                              Wallet, WalletId, WalletOperation (..), WalletUpdate)
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
@@ -79,6 +79,8 @@ bracketPassiveWallet =
         , _pwlDeleteAccount  = pwlDeleteAccount
 
         , _pwlGetAddresses   = pwlGetAddresses
+
+        , _pwlGetTransactions = pwlGetTransactions
 
         , _pwlApplyBlocks    = pwlApplyBlocks
         , _pwlRollbackBlocks = pwlRollbackBlocks
@@ -252,6 +254,13 @@ pwlDeleteAccount wId accIdx = do
 
 pwlGetAddresses :: WalletId -> m [Address]
 pwlGetAddresses = error "Not implemented!"
+
+------------------------------------------------------------
+-- Transaction
+------------------------------------------------------------
+
+pwlGetTransactions :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address) -> m [Transaction]
+pwlGetTransactions =  error "Not implemented!"
 
 ------------------------------------------------------------
 -- Apply Block

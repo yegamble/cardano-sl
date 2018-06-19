@@ -15,6 +15,9 @@ module Cardano.Wallet.WalletLayer.Types
     , deleteAccount
 
     , getAddresses
+
+    , getTransactions
+
     , applyBlocks
     , rollbackBlocks
     ) where
@@ -24,8 +27,7 @@ import           Universum
 import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
-                                              NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
-
+                                              NewAccount, NewWallet, Transaction, V1, Wallet, WalletId, WalletUpdate)
 import           Pos.Core.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
 
@@ -50,6 +52,8 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlDeleteAccount  :: WalletId -> AccountIndex -> m Bool
     -- * addresses
     , _pwlGetAddresses   :: WalletId -> m [Address]
+    -- * transactions
+    , _pwlGetTransactions :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address) -> m [Transaction]
     -- * core API
     , _pwlApplyBlocks    :: OldestFirst NE Blund -> m ()
     , _pwlRollbackBlocks :: NewestFirst NE Blund -> m ()
@@ -96,6 +100,8 @@ deleteAccount pwl = pwl ^. pwlDeleteAccount
 getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
 getAddresses pwl = pwl ^. pwlGetAddresses
 
+getTransactions :: forall m. PassiveWalletLayer m -> Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address) -> m [Transaction]
+getTransactions pwl = pwl ^. pwlGetTransactions
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks

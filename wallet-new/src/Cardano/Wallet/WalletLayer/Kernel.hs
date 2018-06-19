@@ -15,10 +15,11 @@ import           Pos.Block.Types (Blund, Undo (..))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
+import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import qualified Cardano.Wallet.WalletLayer.Transactions as Transactions
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
-
 import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
@@ -34,7 +35,8 @@ bracketPassiveWallet
     -> (PassiveWalletLayer n -> m a) -> m a
 bracketPassiveWallet logFunction f =
     Kernel.bracketPassiveWallet logFunction $ \w -> do
-
+      handle@MetaDBHandle{..} <- liftIO $ openMetaDB ":memory:"
+      liftIO $ migrateMetaDB
       -- Create the wallet worker and its communication endpoint `invoke`.
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
                { Actions.applyBlocks  =  \blunds ->
@@ -56,7 +58,7 @@ bracketPassiveWallet logFunction f =
 
         Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel (pk, esk) Map.empty
 
-      f (passiveWalletLayer w invoke)
+      f (passiveWalletLayer w invoke handle)
 
   where
     -- TODO consider defaults
@@ -65,7 +67,7 @@ bracketPassiveWallet logFunction f =
     assuranceLevel   = HD.AssuranceLevelNormal
 
     -- | TODO(ks): Currently not implemented!
-    passiveWalletLayer _wallet invoke =
+    passiveWalletLayer _wallet invoke handle =
         PassiveWalletLayer
             { _pwlCreateWallet   = error "Not implemented!"
             , _pwlGetWalletIds   = error "Not implemented!"
@@ -80,6 +82,7 @@ bracketPassiveWallet logFunction f =
             , _pwlDeleteAccount  = error "Not implemented!"
 
             , _pwlGetAddresses   = error "Not implemented!"
+            , _pwlGetTransactions = Tranactions.getTransactions handle
 
             , _pwlApplyBlocks    = invoke . Actions.ApplyBlocks
             , _pwlRollbackBlocks = invoke . Actions.RollbackBlocks
