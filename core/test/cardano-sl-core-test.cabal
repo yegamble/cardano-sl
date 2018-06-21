@@ -47,6 +47,7 @@ library
                      , random
                      , serokell-util
                      , tagged
+                     , text
                      , time-units
                      , universum
                      , unordered-containers
