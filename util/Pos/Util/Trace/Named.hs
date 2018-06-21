@@ -10,6 +10,7 @@ module Pos.Util.Trace.Named
     , setupLogging
     , namedTrace
     , appendName
+    , modifyName
     -- * log functions
     , logMessage, logMessageS, logMessageP
     , logDebug,   logDebugS,   logDebugP
