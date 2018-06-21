@@ -54,7 +54,6 @@ import           Cardano.Wallet.Kernel.DB.AcidState (DB, defDB, dbHdWallets
                                                    , NewPending (..)
                                                    , NewPendingError
                                                    , Snapshot (..))
-import           Cardano.Wallet.Kernel.DB.BlockMeta (BlockMeta (..))
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
@@ -203,11 +202,8 @@ applyBlock :: PassiveWallet
 applyBlock pw@PassiveWallet{..} b
     = do
         blocksByAccount <- prefilterBlock' pw b
-        -- TODO(@uroboros/ryan) do proper metadata initialisation (as part of CBR-239: Support history tracking and queries)
-        let blockMeta = BlockMeta . InDb $ Map.empty
-
         -- apply block to all Accounts in all Wallets
-        void $ update' _wallets $ ApplyBlock (blocksByAccount, blockMeta)
+        void $ update' _wallets $ ApplyBlock blocksByAccount
 
 -- | Apply multiple blocks, one at a time, to all wallets in the PassiveWallet
 --
