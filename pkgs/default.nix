@@ -15723,6 +15723,7 @@ license = stdenv.lib.licenses.mit;
 , memory
 , mtl
 , plutus-prototype
+, pvss
 , QuickCheck
 , quickcheck-instances
 , random
@@ -15807,10 +15808,12 @@ cardano-sl-crypto-test
 cardano-sl-util
 cardano-sl-util-test
 containers
+cryptonite
 formatting
 generic-arbitrary
 hedgehog
 hspec
+pvss
 QuickCheck
 quickcheck-instances
 random
@@ -15859,6 +15862,7 @@ license = stdenv.lib.licenses.mit;
 , serokell-util
 , stdenv
 , tagged
+, text
 , time-units
 , universum
 , unordered-containers
@@ -15900,6 +15904,7 @@ quickcheck-instances
 random
 serokell-util
 tagged
+text
 time-units
 universum
 unordered-containers

@@ -1655,8 +1655,10 @@ exampleUpdateProof :: UpdateProof
 exampleUpdateProof = mkUpdateProof exampleUpdatePayload
 
 exampleUpdateProposal :: UpdateProposal
-exampleUpdateProposal =
-    mkUpdateProposalWSign pm bv bvm sv hm ua ss
+exampleUpdateProposalToSign :: UpdateProposalToSign
+(exampleUpdateProposal, exampleUpdateProposalToSign) =
+    ( mkUpdateProposalWSign pm bv bvm sv hm ua ss
+    , UpdateProposalToSign bv bvm sv hm ua )
   where
     pm  = ProtocolMagic 0
     bv  = exampleBlockVersion
@@ -1665,16 +1667,6 @@ exampleUpdateProposal =
     hm  = HM.fromList [(exampleSystemTag, exampleUpdateData)]
     ua  = exampleUpAttributes
     ss  = exampleSafeSigner 0
-
-exampleUpdateProposalToSign :: UpdateProposalToSign
-exampleUpdateProposalToSign =
-    UpdateProposalToSign bv bvm sv hm ua
-  where
-    bv  = exampleBlockVersion
-    bvm = exampleBlockVersionModifier
-    sv  = exampleSoftwareVersion
-    hm  = HM.fromList [(exampleSystemTag, exampleUpdateData)]
-    ua  = exampleUpAttributes
 
 exampleUpdateVote :: UpdateVote
 exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
