@@ -282,29 +282,15 @@ genGenesisConsensusData =
 
 genGenesisHash :: Gen GenesisHash
 genGenesisHash = do
-  sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
-  pure $ GenesisHash (coerce (hash sampleText :: Hash Text))
+    th <- genTextHash
+    pure (GenesisHash (coerce th))
 
--- TODO is this right?
 genHeaderHash :: Gen HeaderHash
-genHeaderHash = do
-  sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
-  pure (coerce (hash sampleText :: Hash Text))
+genHeaderHash = coerce <$> genTextHash
 
 genGenesisProof :: Gen GenesisProof
 genGenesisProof = GenesisProof <$> genAbstractHash genSlotLeaders
 
-
--- genMainBlockBody
---     :: ProtocolMagic
---     -> Core.EpochIndex -- ^ For the delegation payload.
---     -> Gen T.MainBody
--- genMainBlockBody pm epoch =
---     T.MainBody <$> genTxPayload pm
---                <*> genSscPayload pm
---                <*> genDlgPayload pm epoch
---                <*> genUpdatePayload pm
--- TODO should we take an EpochIndex?
 genMainBody :: ProtocolMagic -> Gen MainBody
 genMainBody pm =
     MainBody
@@ -413,7 +399,6 @@ genAddrStakeDistribution = Gen.choice gens
         Gen.scale (`mod` 16) $ do
             holder0 <- genStakeholderId
             holder1 <- Gen.filter (/= holder0) genStakeholderId
-            -- TODO figure out a good size bound here
             moreHolders <- Gen.list (Range.linear 0 100) genStakeholderId
             -- Must be at least 2 non-repeating stakeholders.
             let holders = ordNub (holder0 : holder1 : moreHolders)
@@ -763,12 +748,8 @@ genTxAttributes = pure $ mkAttributes ()
 genTxAux :: ProtocolMagic -> Gen TxAux
 genTxAux pm = TxAux <$> genTx <*> (genTxWitness pm)
 
--- TODO abstract out sampleText, define others as `coerce <$>` over it
--- TODO consider removing `coerce`s
 genTxHash :: Gen (Hash Tx)
-genTxHash = do
-  sampleText <- Gen.text (Range.linear 0 10) Gen.alphaNum
-  pure (coerce (hash sampleText :: Hash Text))
+genTxHash = coerce <$> genTextHash
 
 genTextHash :: Gen (Hash Text)
 genTextHash = do
@@ -804,7 +785,6 @@ genTxOutAux = TxOutAux <$> genTxOut
 genTxOutList :: Gen (NonEmpty TxOut)
 genTxOutList = Gen.nonEmpty (Range.linear 1 100) genTxOut
 
--- TODO decide range
 genTxPayload :: ProtocolMagic -> Gen TxPayload
 genTxPayload pm = mkTxPayload <$> (Gen.list (Range.linear 0 10) (genTxAux pm))
 
@@ -831,7 +811,6 @@ genTxInWitness pm = Gen.choice gens
            , genUnknownWitnessType
            ]
 
--- TODO decide range
 genTxWitness :: ProtocolMagic -> Gen TxWitness
 genTxWitness pm = V.fromList <$> Gen.list (Range.linear 1 10) (genTxInWitness pm)
 
@@ -929,8 +908,6 @@ genUpdateProof pm = genAbstractHash (genUpdatePayload pm)
 
 genUpdateProposal :: ProtocolMagic -> Gen UpdateProposal
 genUpdateProposal pm = do
-    -- let upAttributes = mkAttributes ()
-    -- TODO assess if this needs to copy Pos.Abitrary.Update.Core.genUpdateProposal
     UnsafeUpdateProposal
         <$> genBlockVersion
         <*> genBlockVersionModifier
