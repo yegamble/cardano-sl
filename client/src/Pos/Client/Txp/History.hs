@@ -41,7 +41,7 @@ import           System.Wlog (WithLogger)
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..), HasConfiguration,
                            Timestamp (..), difficultyL, epochSlots, genesisHash, headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
-import           Pos.Core.Block.Constructors (genesisBlock0)
+import           Pos.Core.Block.Constructors (genesisBlock0')
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
@@ -139,9 +139,9 @@ getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 
 deriveAddrHistoryBlk
     :: [Address]
-    -> (MainBlock -> Maybe Timestamp)
+    -> (MainBlock addr -> Maybe Timestamp)
     -> Map TxId TxHistoryEntry
-    -> Block
+    -> Block addr
     -> UtxoM (Map TxId TxHistoryEntry)
 deriveAddrHistoryBlk _ _ hist (Left _) = pure hist
 deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
@@ -216,11 +216,11 @@ getBlockHistoryDefault
     -> [Address]
     -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault pm addrs = do
-    let bot      = headerHash (genesisBlock0 pm (GenesisHash genesisHash) (genesisLeaders epochSlots))
+    let bot      = headerHash (genesisBlock0' pm (GenesisHash genesisHash) (genesisLeaders epochSlots))
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 
-    let getBlockTimestamp :: MainBlock -> Maybe Timestamp
+    let getBlockTimestamp :: MainBlock addr -> Maybe Timestamp
         getBlockTimestamp blk =
             getSlotStartPure systemStart (blk ^. mainBlockSlot) sd
 
@@ -228,7 +228,7 @@ getBlockHistoryDefault pm addrs = do
 
     let foldStep ::
                (Map TxId TxHistoryEntry, UtxoModifier)
-            -> Block
+            -> Block attr
             -> (Map TxId TxHistoryEntry, UtxoModifier)
         foldStep (hist, modifier) blk =
             runUtxoM

@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 module Bench.Pos.Criterion.Block.Logic
     ( runBenchmark
     ) where
@@ -17,6 +18,7 @@ import           System.Wlog (LoggerName (..))
 import           Mockable.CurrentTime (realTime)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
+import           Pos.Binary.Class (DecoderAttrKind (..), EitherExtRep (..), NonEmptyExtRep (..), fillExtRep)
 import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader)
 import           Pos.Block.Logic.VAR (VerifyBlocksContext, getVerifyBlocksContext', rollbackBlocks,
                      verifyAndApplyBlocks, verifyBlocksPrefix)
@@ -97,7 +99,7 @@ verifyBlocksBenchmark !pm !tp !ctx =
             $ \ ~(vctx, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB vctx blocks)
         ]
     where
-    genEnv :: BlockCount -> BlockTestMode (VerifyBlocksContext, OldestFirst NE Block)
+    genEnv :: BlockCount -> BlockTestMode (VerifyBlocksContext, OldestFirst NE (Block 'AttrExtRep))
     genEnv bCount = do
         initNodeDBs pm slotSecurityParam
         g <- liftIO $ newStdGen
@@ -118,16 +120,25 @@ verifyBlocksBenchmark !pm !tp !ctx =
                     , _bgpTxpGlobalSettings = txpGlobalSettings pm
                     })
                 maybeToList
+        let bs' :: NE.NonEmpty (Block 'AttrExtRep)
+            bs' = fmap runEitherExtRep
+                $ runNonEmptyExtRep
+                $ fromRight (error "fillExtRep failed")
+                $ fillExtRep
+                $ NonEmptyExtRep
+                $ fmap EitherExtRep
+                $ NE.fromList
+                $ bs
         let curSlot :: Maybe SlotId
             curSlot = case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
                 [] -> Nothing
                 ss -> Just $ maximum ss
         vctx <- getVerifyBlocksContext' curSlot
-        return $ ( vctx, OldestFirst $ NE.fromList bs)
+        return $ ( vctx, OldestFirst bs')
 
     verifyAndApplyBlocksB
         :: VerifyBlocksContext
-        -> OldestFirst NE Block
+        -> OldestFirst NE (Block 'AttrExtRep)
         -> Benchmarkable
     verifyAndApplyBlocksB verifyBlocksCtx blocks =
         nfIO
@@ -141,7 +152,7 @@ verifyBlocksBenchmark !pm !tp !ctx =
 
     verifyBlocksPrefixB
         :: VerifyBlocksContext
-        -> OldestFirst NE Block
+        -> OldestFirst NE (Block 'AttrExtRep)
         -> Benchmarkable
     verifyBlocksPrefixB verifyBlocksCtx blocks =
         nfIO
@@ -159,7 +170,7 @@ verifyHeaderBenchmark !pm !tp = bgroup "verifyHeader"
         $ \e -> bench "verifyHeader" (benchHeaderVerification e)
     ]
     where
-    genEnv :: BlockTestMode (SlotLeaders, BlockHeader)
+    genEnv :: BlockTestMode (SlotLeaders, BlockHeader 'AttrExtRep)
     genEnv = do
         initNodeDBs pm slotSecurityParam
         g <- liftIO $ newStdGen
@@ -186,11 +197,12 @@ verifyHeaderBenchmark !pm !tp = bgroup "verifyHeader"
             tipHeader <- lift $ getTipHeader
             mapRandT (flip runReaderT blockGenCtx)
                 $ genBlockNoApply pm eos tipHeader
-        let !block = fromMaybe (error "verifyHeaderBench: failed to generate a header") mblock
-        return (leaders, getBlockHeader block)
+        let header = getBlockHeader $ fromMaybe (error "verifyHeaderBench: failed to generate a header") mblock
+            !headerET = fromRight (error "fillExtRep failed") $ fillExtRep $ header
+        return (leaders, headerET)
 
     benchHeaderVerification
-        :: (SlotLeaders, BlockHeader)
+        :: (SlotLeaders, (BlockHeader 'AttrExtRep))
         -> Benchmarkable
     benchHeaderVerification ~(leaders, header) =
         let !verifyHeaderParams = VerifyHeaderParams

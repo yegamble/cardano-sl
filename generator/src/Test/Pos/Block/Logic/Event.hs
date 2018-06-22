@@ -56,7 +56,7 @@ data BlockEventResult
     | BlockEventFailure IsExpected SomeException
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
-lastSlot :: [Block] -> Maybe SlotId
+lastSlot :: [Block attr] -> Maybe SlotId
 lastSlot bs =
     case mapMaybe (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot) bs of
         [] -> Nothing
@@ -67,7 +67,7 @@ verifyAndApplyBlocks' ::
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
-    => OldestFirst NE Blund
+    => OldestFirst NE (Blund attr)
     -> m ()
 verifyAndApplyBlocks' blunds = do
     let -- We cannot simply take `getCurrentSlot` since blocks are generated in
