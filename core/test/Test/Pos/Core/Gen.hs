@@ -151,84 +151,64 @@ import qualified Data.HashMap.Strict as HM
 import           Data.List.NonEmpty (fromList)
 import qualified Data.Map as M
 import           Data.Maybe
-import           Data.Time.Units (fromMicroseconds, Microsecond, Millisecond)
+import           Data.Time.Units (Microsecond, Millisecond, fromMicroseconds)
 import qualified Data.Vector as V
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import           Pos.Binary.Class (asBinary, Bi, Raw (..))
-import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..),
-                                 BlockHeaderAttributes, BlockSignature (..),
-                                 GenesisBlockHeader, GenesisBody (..),
-                                 GenesisConsensusData (..), GenesisProof (..),
-                                 GenesisExtraHeaderData (..), HeaderHash,
-                                 MainBlockHeader, MainBody (..),
-                                 MainConsensusData (..),
-                                 MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..),
-                                 MainToSign (..), mkMainHeaderExplicit,
-                                 mkGenericHeader)
-import           Pos.Core.Common (Address (..), AddrAttributes (..),
-                                  AddrSpendingData (..),
-                                  AddrStakeDistribution (..), AddrType (..),
-                                  BlockCount (..), ChainDifficulty (..),
-                                  Coeff (..), Coin (..), CoinPortion (..),
-                                  makeAddress, Script (..), ScriptVersion,
-                                  SharedSeed (..), SlotLeaders, StakeholderId,
-                                  StakesList, StakesMap, TxFeePolicy (..),
-                                  TxSizeLinear (..), coinPortionDenominator, mkMultiKeyDistr)
-import           Pos.Core.Configuration (CoreConfiguration (..),
-                                         GenesisConfiguration (..),
+import           Pos.Binary.Class (Bi, Raw (..), asBinary)
+import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
+                                 BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
+                                 GenesisConsensusData (..), GenesisExtraHeaderData (..),
+                                 GenesisProof (..), HeaderHash, MainBlockHeader, MainBody (..),
+                                 MainConsensusData (..), MainExtraBodyData (..),
+                                 MainExtraHeaderData (..), MainProof (..), MainToSign (..),
+                                 mkGenericHeader, mkMainHeaderExplicit)
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
+                                  AddrStakeDistribution (..), AddrType (..), Address (..),
+                                  BlockCount (..), ChainDifficulty (..), Coeff (..), Coin (..),
+                                  CoinPortion (..), Script (..), ScriptVersion, SharedSeed (..),
+                                  SlotLeaders, StakeholderId, StakesList, StakesMap,
+                                  TxFeePolicy (..), TxSizeLinear (..), coinPortionDenominator,
+                                  makeAddress, maxCoinVal, mkMultiKeyDistr)
+import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..),
                                          GenesisHash (..))
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
-                                      ProxySKHeavy, DlgPayload (..), ProxySKBlockInfo)
-import           Pos.Core.Genesis (FakeAvvmOptions (..),
-                                   GenesisAvvmBalances (..),
-                                   GenesisDelegation (..),
-                                   GenesisInitializer (..),
-                                   GenesisProtocolConstants (..),
-                                   GenesisSpec (..), mkGenesisSpec,
-                                   TestnetBalanceOptions (..))
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMinTTL (..), VssMaxTTL (..))
-import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..),
-                                    FlatSlotId, LocalSlotIndex (..),
-                                    SlotCount (..), SlotId (..), TimeDiff (..),
-                                    Timestamp (..), localSlotIndexMaxBound,
-                                    localSlotIndexMinBound)
-import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
-                               mkCommitmentsMap, mkSscProof, mkVssCertificate,
-                               mkVssCertificatesMap, Opening, OpeningsMap,
-                               InnerSharesMap, SharesDistribution, SharesMap,
-                               SignedCommitment, SscPayload (..), SscProof,
-                               VssCertificate (..), VssCertificatesHash,
-                               VssCertificatesMap (..), randCommitmentAndOpening)
-import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
-                               TxIn (..), TxInWitness (..), TxOut (..),
-                               TxOutAux (..), TxPayload (..), TxProof (..),
-                               TxSig, TxSigData (..), TxWitness, mkTxPayload)
-import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
-                                  BlockVersionData (..),
+import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..),
+                                      ProxySKBlockInfo, ProxySKHeavy)
+import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisAvvmBalances (..),
+                                   GenesisDelegation (..), GenesisInitializer (..),
+                                   GenesisProtocolConstants (..), GenesisSpec (..),
+                                   TestnetBalanceOptions (..), mkGenesisSpec)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
+                                    LocalSlotIndex (..), SlotCount (..), SlotId (..), TimeDiff (..),
+                                    Timestamp (..), localSlotIndexMaxBound, localSlotIndexMinBound)
+import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap, InnerSharesMap,
+                               Opening, OpeningsMap, SharesDistribution, SharesMap,
+                               SignedCommitment, SscPayload (..), SscProof, VssCertificate (..),
+                               VssCertificatesHash, VssCertificatesMap (..), mkCommitmentsMap,
+                               mkSscProof, mkVssCertificate, mkVssCertificatesMap,
+                               randCommitmentAndOpening)
+import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId, TxIn (..), TxInWitness (..),
+                               TxOut (..), TxOutAux (..), TxPayload (..), TxProof (..), TxSig,
+                               TxSigData (..), TxWitness, mkTxPayload)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
                                   BlockVersionModifier (..), SoftforkRule (..),
-                                  SoftwareVersion (..), SystemTag (..),
-                                  UpAttributes, UpdateData (..),
-                                  UpdatePayload (..), UpdateProof,
-                                  UpdateProposal (..), UpdateProposals,
-                                  UpdateProposalToSign  (..), UpdateVote (..),
-                                  UpId, VoteId, mkUpdateVote)
-import           Pos.Crypto (decodeHash, deterministic, Hash, ProtocolMagic, hash, safeCreatePsk, sign)
+                                  SoftwareVersion (..), SystemTag (..), UpAttributes, UpId,
+                                  UpdateData (..), UpdatePayload (..), UpdateProof,
+                                  UpdateProposal (..), UpdateProposalToSign (..), UpdateProposals,
+                                  UpdateVote (..), VoteId, mkUpdateVote)
+import           Pos.Crypto (Hash, ProtocolMagic, decodeHash, deterministic, hash, safeCreatePsk,
+                             sign)
 import           Pos.Data.Attributes (Attributes (..), mkAttributes)
-import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..),
-                             MerkleTree (..))
+import           Pos.Merkle (MerkleRoot (..), MerkleTree (..), mkMerkleTree, mtRoot)
 import           Pos.Util.Util (leftToPanic)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare,
-                                      genHDAddressPayload,genProtocolMagic,
-                                      genProxySignature,genPublicKey,
-                                      genRedeemPublicKey, genRedeemSignature,
-                                      genSafeSigner, genSecretKey,
-                                      genSignature, genSignTag,
-                                      genVssPublicKey)
+import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare, genHDAddressPayload,
+                                      genProtocolMagic, genProxySignature, genPublicKey,
+                                      genRedeemPublicKey, genRedeemSignature, genSafeSigner,
+                                      genSecretKey, genSignTag, genSignature, genVssPublicKey)
 
 
 ----------------------------------------------------------------------------
@@ -299,6 +279,8 @@ genMainBody pm =
         <*> genDlgPayload pm
         <*> genUpdatePayload pm
 
+-- We use `Nothing` as the ProxySKBlockInfo to avoid clashing key errors
+-- (since we use example keys which aren't related to each other)
 genMainBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen MainBlockHeader
 genMainBlockHeader pm pc =
     mkMainHeaderExplicit pm
@@ -306,7 +288,7 @@ genMainBlockHeader pm pc =
         <*> genChainDifficulty
         <*> genSlotId pc
         <*> genSecretKey
-        <*> pure Nothing -- genProxySKBlockInfo pm
+        <*> pure Nothing
         <*> genMainBody pm
         <*> genMainExtraHeaderData
 
@@ -436,10 +418,11 @@ genCoeff = do
     pure $ Coeff (MkFixed integer)
 
 genCoin :: Gen Coin
-genCoin = Coin <$> Gen.word64 (Range.constant 0 100000000)
+genCoin = Coin <$> Gen.word64 (Range.constant 0 maxCoinVal)
 
 genCoinPortion :: Gen CoinPortion
-genCoinPortion = CoinPortion <$> Gen.word64 (Range.constant 1 1000)
+genCoinPortion =
+    CoinPortion <$> Gen.word64 (Range.constant 0 coinPortionDenominator)
 
 genScript :: Gen Script
 genScript = Script <$> genScriptVersion <*> gen32Bytes
@@ -517,10 +500,10 @@ genLightDlgIndices =
     LightDlgIndices <$> ((,) <$> genEpochIndex <*> genEpochIndex)
 
 genProxySKBlockInfo :: ProtocolMagic -> Gen ProxySKBlockInfo
-genProxySKBlockInfo pm = do
+genProxySKBlockInfo pm = Gen.maybe $ do
     pSKHeavy <- genProxySKHeavy pm
     pubKey <- genPublicKey
-    pure $ Just (pSKHeavy,pubKey)
+    pure (pSKHeavy,pubKey)
 
 genProxySKHeavy :: ProtocolMagic -> Gen ProxySKHeavy
 genProxySKHeavy pm =
