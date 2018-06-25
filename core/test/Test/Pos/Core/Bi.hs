@@ -14,7 +14,7 @@ import           Data.List (zipWith4, (!!))
 import           Data.List.NonEmpty (fromList)
 import qualified Data.Map as M
 import           Data.Maybe (fromJust)
-import qualified Data.Text as Text (unpack)
+import qualified Data.Text as T
 import           Data.Time.Units (Millisecond, fromMicroseconds)
 import qualified Data.Vector as V
 import           Hedgehog (Group (..), GroupName, Property, PropertyName)
@@ -55,8 +55,8 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpAttributes, UpId,
                                   UpdateData (..), UpdatePayload (..), UpdateProof, UpdateProposal,
-                                  UpdateProposalToSign (..), UpdateVote (..), mkUpdateProof,
-                                  mkUpdateProposalWSign, mkUpdateVoteSafe)
+                                  UpdateProposalToSign (..), UpdateVote (..), VoteId,
+                                  mkUpdateProof, mkUpdateProposalWSign, mkUpdateVoteSafe)
 import           Pos.Crypto (AbstractHash (..), EncShare (..), HDAddressPayload (..), Hash,
                              ProtocolMagic (..), PublicKey (..), RedeemPublicKey, RedeemSignature,
                              SafeSigner (..), Secret (..), SecretKey (..), SecretProof (..),
@@ -211,18 +211,14 @@ roundTripBlockCountBi = eachOf 1000 genBlockCount roundTripsBiBuildable
 --------------------------------------------------------------------------------
 
 golden_BlockHeader_Genesis :: Property
-golden_BlockHeader_Genesis = goldenTestBi (BlockHeaderGenesis exampleGenesisBlockHeader)
-                                          "test/golden/BlockHeader_Genesis"
+golden_BlockHeader_Genesis =
+    goldenTestBi exampleBlockHeaderGenesis "test/golden/BlockHeader_Genesis"
 
 -- We use `Nothing` as the ProxySKBlockInfo to avoid clashing key errors
 -- (since we use example keys which aren't related to each other)
 golden_BlockHeaderMain :: Property
-golden_BlockHeaderMain = goldenTestBi bhm "test/golden/BlockHeaderMain"
-  where
-    bhm = mkMainHeaderExplicit (ProtocolMagic 0) exampleHeaderHash
-                               exampleChainDifficulty exampleSlotId
-                               exampleSecretKey Nothing
-                               exampleMainBody exampleMainExtraHeaderData
+golden_BlockHeaderMain =
+    goldenTestBi exampleBlockHeaderMain "test/golden/BlockHeaderMain"
 
 roundTripBlockHeaderBi :: Property
 roundTripBlockHeaderBi = eachOf 10 (feedPMC genBlockHeader) roundTripsBiBuildable
@@ -246,22 +242,12 @@ golden_BlockSignature :: Property
 golden_BlockSignature = goldenTestBi exampleBlockSignature "test/golden/BlockSignature"
 
 golden_BlockSignature_Light :: Property
-golden_BlockSignature_Light = goldenTestBi (BlockPSignatureLight sig)
-                                           "test/golden/BlockSignature_Light"
-  where
-    sig = proxySign pm SignProxySK delegateSk psk exampleMainToSign
-    [delegateSk, issuerSk] = exampleSecretKeys 5 2
-    psk = createPsk pm issuerSk (toPublic delegateSk) exampleLightDlgIndices
-    pm = ProtocolMagic 2
+golden_BlockSignature_Light =
+    goldenTestBi exampleBlockPSignatureLight "test/golden/BlockSignature_Light"
 
 golden_BlockSignature_Heavy :: Property
-golden_BlockSignature_Heavy = goldenTestBi (BlockPSignatureHeavy sig)
-                                           "test/golden/BlockSignature_Heavy"
-  where
-    sig = proxySign pm SignProxySK delegateSk psk exampleMainToSign
-    [delegateSk, issuerSk] = exampleSecretKeys 5 2
-    psk = createPsk pm issuerSk (toPublic delegateSk) (staticHeavyDlgIndexes !! 0)
-    pm = ProtocolMagic 2
+golden_BlockSignature_Heavy =
+    goldenTestBi exampleBlockPSignatureHeavy "test/golden/BlockSignature_Heavy"
 
 roundTripBlockSignatureBi :: Property
 roundTripBlockSignatureBi = eachOf 10 (feedPMC genBlockSignature) roundTripsBiBuildable
@@ -554,9 +540,8 @@ roundTripMainBodyBi = eachOf 20 (feedPM genMainBody) roundTripsBiShow
 --------------------------------------------------------------------------------
 
 golden_MainConsensusData :: Property
-golden_MainConsensusData = goldenTestBi mcd "test/golden/MainConsensusData"
-  where mcd = MainConsensusData exampleSlotId examplePublicKey
-                                exampleChainDifficulty exampleBlockSignature
+golden_MainConsensusData =
+    goldenTestBi exampleMainConsensusData "test/golden/MainConsensusData"
 
 roundTripMainConsensusData :: Property
 roundTripMainConsensusData = eachOf 20 (feedPMC genMainConsensusData) roundTripsBiShow
@@ -1228,10 +1213,7 @@ roundTripUpsData = eachOf 20 genUpsData roundTripsBiShow
 --------------------------------------------------------------------------------
 
 golden_VoteId :: Property
-golden_VoteId = goldenTestBi vID "test/golden/VoteId"
-    where
-        vID = (exampleUpId, examplePublicKey, False)
--- ```type VoteId = (UpId, PublicKey, Bool)```
+golden_VoteId = goldenTestBi exampleVoteId "test/golden/VoteId"
 
 roundTripVoteId :: Property
 roundTripVoteId = eachOf 20 (feedPM genVoteId) roundTripsBiBuildable
@@ -1288,7 +1270,7 @@ feedPMC genA = do
 -- 'Show' instance is derived, this will be the constructor's name. However, a
 -- custom 'Show' instance would break this.
 whichConstructor :: Show a => a -> String
-whichConstructor a = Text.unpack $ head $ fromList $ words $ show a
+whichConstructor a = T.unpack $ head $ fromList $ words $ show a
 
 -- | Given the 'Group' name and a list of values of a sum type, construct a
 -- 'Property' which represents a 'Group' of golden tests.
@@ -1320,11 +1302,37 @@ exampleAddrSpendingData_PubKey = PubKeyASD examplePublicKey
 exampleAttributes :: Attributes ()
 exampleAttributes = mkAttributes ()
 
+exampleBlockHeaderGenesis :: BlockHeader
+exampleBlockHeaderGenesis = (BlockHeaderGenesis exampleGenesisBlockHeader)
+
+exampleBlockHeaderMain :: MainBlockHeader
+exampleBlockHeaderMain =
+  mkMainHeaderExplicit (ProtocolMagic 0) exampleHeaderHash
+                       exampleChainDifficulty exampleSlotId
+                       exampleSecretKey Nothing
+                       exampleMainBody exampleMainExtraHeaderData
+
 exampleBlockSignature :: BlockSignature
 exampleBlockSignature = BlockSignature (sign (ProtocolMagic 7)
                                               SignMainBlock
                                               exampleSecretKey
                                               exampleMainToSign)
+
+exampleBlockPSignatureLight :: BlockSignature
+exampleBlockPSignatureLight = BlockPSignatureLight sig
+  where
+    sig = proxySign pm SignProxySK delegateSk psk exampleMainToSign
+    [delegateSk, issuerSk] = exampleSecretKeys 5 2
+    psk = createPsk pm issuerSk (toPublic delegateSk) exampleLightDlgIndices
+    pm = ProtocolMagic 2
+
+exampleBlockPSignatureHeavy :: BlockSignature
+exampleBlockPSignatureHeavy = BlockPSignatureHeavy sig
+  where
+    sig = proxySign pm SignProxySK delegateSk psk exampleMainToSign
+    [delegateSk, issuerSk] = exampleSecretKeys 5 2
+    psk = createPsk pm issuerSk (toPublic delegateSk) (staticHeavyDlgIndexes !! 0)
+    pm = ProtocolMagic 2
 
 exampleBlockVersion :: BlockVersion
 exampleBlockVersion = BlockVersion 1 1 1
@@ -1464,6 +1472,12 @@ exampleMainBody = MainBody exampleTxPayload exampleSscPayload
   where
     dp = UnsafeDlgPayload (take 4 staticProxySKHeavys)
 
+exampleMainConsensusData :: MainConsensusData
+exampleMainConsensusData = MainConsensusData exampleSlotId
+                                             examplePublicKey
+                                             exampleChainDifficulty
+                                             exampleBlockSignature
+
 exampleMainExtraHeaderData :: MainExtraHeaderData
 exampleMainExtraHeaderData =
     MainExtraHeaderData exampleBlockVersion
@@ -1502,7 +1516,7 @@ examplePublicKeys :: Int -> Int -> [PublicKey]
 examplePublicKeys offset count = map (toKey . (*offset)) [0..count-1]
   where
     toKey start = let Right pk = PublicKey <$> xpub (getBytes start 64)
-                    in pk
+                   in pk
 
 exampleRedeemPublicKey :: RedeemPublicKey
 exampleRedeemPublicKey = fromJust (fst <$> redeemDeterministicKeyGen (getBytes 0 32))
@@ -1587,7 +1601,12 @@ exampleStakesList = zip sis coins
     coins = map Coin [79, 44, 9999999]
 
 exampleSystemTag :: SystemTag
-exampleSystemTag = SystemTag "golden"
+exampleSystemTag = (exampleSystemTags 0 1) !! 0
+
+exampleSystemTags :: Int -> Int -> [SystemTag]
+exampleSystemTags offset count = map (toSystemTag . (*offset)) [0..count-1]
+  where
+    toSystemTag start = SystemTag (getText start 16)
 
 exampleTxAux :: TxAux
 exampleTxAux = TxAux tx exampleTxWitness
@@ -1636,9 +1655,14 @@ exampleUpAttributes :: UpAttributes
 exampleUpAttributes = exampleAttributes
 
 exampleUpdateData :: UpdateData
-exampleUpdateData = UpdateData h h h h
+exampleUpdateData = (exampleUpdateDatas 10 2) !! 1
+
+exampleUpdateDatas :: Int -> Int -> [UpdateData]
+exampleUpdateDatas offset count = map (toUpdateData . (*offset)) [0..count-1]
   where
-    h = hash $ Raw "golden"
+    toUpdateData start =
+      let h = hash $ Raw (getBytes start 128)
+      in  UpdateData h h h h
 
 exampleUpId :: UpId
 exampleUpId = hash exampleUpdateProposal
@@ -1662,7 +1686,7 @@ exampleUpdateProposalToSign :: UpdateProposalToSign
     bv  = exampleBlockVersion
     bvm = exampleBlockVersionModifier
     sv  = exampleSoftwareVersion
-    hm  = HM.fromList [(exampleSystemTag, exampleUpdateData)]
+    hm  = HM.fromList $ zip (exampleSystemTags 10 5) (exampleUpdateDatas 10 5)
     ua  = exampleUpAttributes
     ss  = exampleSafeSigner 0
 
@@ -1673,6 +1697,10 @@ exampleUpdateVote = mkUpdateVoteSafe pm ss ui ar
     ss = exampleSafeSigner 0
     ui = exampleUpId
     ar = True
+
+-- | ```type VoteId = (UpId, PublicKey, Bool)```
+exampleVoteId :: VoteId
+exampleVoteId = (exampleUpId, examplePublicKey, False)
 
 exampleVssCertificate :: VssCertificate
 exampleVssCertificate =
@@ -1714,19 +1742,33 @@ exampleVssPublicKeys offset count = map (toKey . (*offset)) [0..count]
     where
         toKey start = toVssPublicKey . deterministicVssKeyGen $ (getBytes start 32)
 
+staticHeavyDlgIndexes :: [HeavyDlgIndex]
+staticHeavyDlgIndexes = map (HeavyDlgIndex . EpochIndex) [5,1,3,27,99,247]
+
+staticProtocolMagics :: [ProtocolMagic]
+staticProtocolMagics = map ProtocolMagic [0..5]
+
 staticProxySKHeavys :: [ProxySKHeavy]
 staticProxySKHeavys = zipWith4 safeCreatePsk
                                staticProtocolMagics staticSafeSigners
                                (examplePublicKeys 1 6) staticHeavyDlgIndexes
 
-staticHeavyDlgIndexes :: [HeavyDlgIndex]
-staticHeavyDlgIndexes = map (HeavyDlgIndex . EpochIndex) [5,1,3,27,99,247]
-
 staticSafeSigners :: [SafeSigner]
 staticSafeSigners = map FakeSigner (exampleSecretKeys 1 6)
 
-staticProtocolMagics :: [ProtocolMagic]
-staticProtocolMagics = map ProtocolMagic [0..5]
+-- | Changing existing values in this string will break existing golden
+-- tests, but it us OK to append more data to the end.
+staticText :: Text
+staticText
+    = "Kmyw4lDSE5S4fSH6etNouiXezCyEjKc3tG4ja0kFjO8qzai26ZMPUEJfEy15ox5kJ0uKD\
+    \bi7i6dLXkuesVZ9JfHgjrctsLFt2NvovXnchsOvX05Y6LohlTNt5mkPFhUoXu1EZSJTIy\
+    \3fTU53b412r4AEusD7tcdRgH47yTr5hMO63bJnYBbmNperLHfiT1lP0MLQLh1J1DfoYBs\
+    \auoJOzvtAgvjHo6UFttnK6vZ3Cknpuob6uMS2MkJKmuoQsqsAYcRDWbJ2Rgw4bm2ndTM4\
+    \zFfuRDKvdrL6sDkuPNPYqxMWlqnXjSbU0eLtceZuKgXLHR8cdvsEvywt4JaZUQhnbq3Vl\
+    \7nZqcXdoi4XGTCgSGcGp8N0SDVhvkVh0QF1RVpWPnOMyYISJvuaHfo1zXMdq9tEdtJfID"
+
+getText :: Int -> Int -> Text
+getText offset len = T.take len $ T.drop offset staticText
 
 -----------------------------------------------------------------------
 -- Main test export
