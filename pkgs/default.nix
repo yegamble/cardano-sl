@@ -15375,6 +15375,7 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , cryptonite
 , data-default
+, deepseq
 , directory
 , ekg-core
 , ether
@@ -15383,6 +15384,7 @@ license = stdenv.lib.licenses.mit;
 , formatting
 , lens
 , log-warper
+, mmorph
 , mtl
 , pipes
 , random
@@ -15430,6 +15432,7 @@ conduit
 containers
 cryptonite
 data-default
+deepseq
 directory
 ekg-core
 ether
@@ -15438,6 +15441,7 @@ filepath
 formatting
 lens
 log-warper
+mmorph
 mtl
 pipes
 random
@@ -16517,6 +16521,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-generator" = callPackage
 ({
   mkDerivation
+, async
 , base
 , bytestring
 , cardano-sl
@@ -16541,16 +16546,22 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-util-test
 , containers
 , cpphs
+, criterion
 , cryptonite
 , data-default
+, deepseq
+, directory
 , ether
 , exceptions
 , formatting
 , hspec
 , lens
 , log-warper
+, lrucache
 , monad-control
 , MonadRandom
+, mtl
+, optparse-applicative
 , QuickCheck
 , random
 , safe-exceptions
@@ -16562,6 +16573,7 @@ license = stdenv.lib.licenses.mit;
 , transformers-base
 , universum
 , unliftio
+, unliftio-core
 , unordered-containers
 , vector
 }:
@@ -16574,6 +16586,8 @@ configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
 "--ghc-option=-Werror"
 ];
+isLibrary = true;
+isExecutable = true;
 libraryHaskellDepends = [
 base
 bytestring
@@ -16618,6 +16632,49 @@ vector
 libraryToolDepends = [
 cpphs
 ];
+executableHaskellDepends = [
+async
+base
+bytestring
+cardano-sl
+cardano-sl-binary
+cardano-sl-block
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-delegation
+cardano-sl-infra
+cardano-sl-lrc
+cardano-sl-networking
+cardano-sl-ssc
+cardano-sl-txp
+cardano-sl-update
+cardano-sl-util
+containers
+criterion
+cryptonite
+data-default
+deepseq
+directory
+ether
+formatting
+lens
+log-warper
+lrucache
+MonadRandom
+mtl
+optparse-applicative
+QuickCheck
+random
+text
+time-units
+universum
+unliftio-core
+unordered-containers
+];
+executableToolDepends = [
+cpphs
+];
 testHaskellDepends = [
 base
 bytestring
@@ -16631,6 +16688,7 @@ cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-delegation-test
+cardano-sl-infra
 cardano-sl-lrc
 cardano-sl-ssc
 cardano-sl-txp
@@ -16650,6 +16708,44 @@ universum
 unordered-containers
 ];
 testToolDepends = [
+cpphs
+];
+benchmarkHaskellDepends = [
+async
+base
+cardano-sl
+cardano-sl-binary
+cardano-sl-block
+cardano-sl-core
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-delegation
+cardano-sl-infra
+cardano-sl-lrc
+cardano-sl-networking
+cardano-sl-ssc
+cardano-sl-txp
+cardano-sl-update
+cardano-sl-util
+containers
+criterion
+cryptonite
+data-default
+ether
+lens
+log-warper
+lrucache
+MonadRandom
+mtl
+QuickCheck
+random
+serokell-util
+time-units
+universum
+unliftio-core
+unordered-containers
+];
+benchmarkToolDepends = [
 cpphs
 ];
 doHaddock = false;
@@ -17224,6 +17320,7 @@ license = stdenv.lib.licenses.mit;
 , cpphs
 , cryptonite
 , data-default
+, deepseq
 , ekg-core
 , ether
 , exceptions
@@ -17278,6 +17375,7 @@ cardano-sl-util-test
 containers
 cryptonite
 data-default
+deepseq
 ekg-core
 ether
 exceptions
@@ -17702,6 +17800,7 @@ license = stdenv.lib.licenses.mit;
 , containers
 , cpphs
 , data-default
+, deepseq
 , directory
 , ether
 , exceptions
@@ -17755,6 +17854,7 @@ cardano-sl-util
 conduit
 containers
 data-default
+deepseq
 directory
 ether
 exceptions
