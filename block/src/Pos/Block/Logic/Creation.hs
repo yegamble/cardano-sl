@@ -25,14 +25,15 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Logic.Internal (MonadBlockApply, VerifyBlocksContext (..), applyBlocksUnsafe, normalizeMempool)
+import           Pos.Block.Logic.Internal (MonadBlockApply, VerifyBlocksContext (..),
+                     applyBlocksUnsafe, normalizeMempool)
 import           Pos.Block.Logic.Util (calcChainQualityM)
-import           Pos.Block.Logic.VAR (verifyBlocksPrefix, getVerifyBlocksContext)
+import           Pos.Block.Logic.VAR (getVerifyBlocksContext, verifyBlocksPrefix)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasProtocolConstants,
-                           HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
-                           flattenSlotId, getEpochOrSlot, headerHash)
+                     HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
+                     flattenSlotId, getEpochOrSlot, headerHash)
 import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Block.Constructors (mkGenesisBlock, mkMainBlock)
@@ -44,7 +45,7 @@ import           Pos.Crypto (ProtocolMagic, SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
-                                 getDlgMempool)
+                     getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
@@ -58,11 +59,11 @@ import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.State (sscResetLocal)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpMemPool,
-                          txGetPayload, withTxpLocalData)
+                     txGetPayload, withTxpLocalData)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update (UpdateContext)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
-                                           lastKnownBlockVersion)
+                     lastKnownBlockVersion)
 import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)

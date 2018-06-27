@@ -37,12 +37,11 @@ import           Pos.Block.Logic.Types (VerifyBlocksContext (..))
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
-                           difficultyL, epochIndexL, flattenSlotId, headerHash,
-                           headerHashG, prevBlockL)
+import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam, difficultyL,
+                     epochIndexL, flattenSlotId, headerHash, headerHashG, prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
-                                  _OldestFirst)
+                     _OldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block (putBlunds)

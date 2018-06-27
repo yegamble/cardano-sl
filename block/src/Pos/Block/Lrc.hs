@@ -26,10 +26,10 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
-                                           applyBlocksUnsafe, rollbackBlocksUnsafe)
+                     applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
-                           blkSecurityParam, crucialSlot, epochIndexL, epochSlots, getEpochOrSlot)
+                     blkSecurityParam, crucialSlot, epochIndexL, epochSlots, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
@@ -54,7 +54,7 @@ import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateS
 import           Pos.Ssc.Message (SscMessageConstraints)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
-import           Pos.Update.DB (getCompetingBVStates, getAdoptedBVFull)
+import           Pos.Update.DB (getAdoptedBVFull, getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Util (HasLens (..))

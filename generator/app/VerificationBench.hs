@@ -2,35 +2,39 @@ module VerificationBench where
 
 import           Universum
 
-import           Control.Monad.Random.Strict (evalRandT)
 import           Control.DeepSeq (force)
+import           Control.Monad.Random.Strict (evalRandT)
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
-import qualified Data.ByteString.Lazy as BSL
 import           Data.Time.Units (Microsecond, convertUnit)
-import           Formatting (sformat, shown, int, (%))
+import           Formatting (int, sformat, shown, (%))
 import qualified Options.Applicative as Opts
 import           System.Directory (doesFileExist)
 import           System.Random (newStdGen)
-import           System.Wlog (LoggerName (..), LoggerConfig, consoleActionB, debugPlus, setupLogging, defaultHandleAction, termSeveritiesOutB, consoleActionB, logInfo, logError)
+import           System.Wlog (LoggerConfig, LoggerName (..), consoleActionB, debugPlus,
+                     defaultHandleAction, logError, logInfo, setupLogging, termSeveritiesOutB)
 
 import           Mockable.CurrentTime (realTime)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
-import           Pos.Binary.Class (serialize, decodeFull)
+import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Block.Error (ApplyBlocksException, VerifyBlocksException)
-import           Pos.Block.Logic.VAR (getVerifyBlocksContext', verifyAndApplyBlocks, verifyBlocksPrefix, rollbackBlocks)
+import           Pos.Block.Logic.VAR (getVerifyBlocksContext', rollbackBlocks, verifyAndApplyBlocks,
+                     verifyBlocksPrefix)
 import           Pos.Core (Block)
-import           Pos.Core.Chrono (OldestFirst (..), NE, nonEmptyNewestFirst)
+import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
-import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
-                                         genesisSecretKeys, slotSecurityParam)
-import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..), GenesisInitializer (..), TestnetBalanceOptions (..))
+import           Pos.Core.Configuration (genesisBlockVersionData, genesisData, genesisSecretKeys,
+                     slotSecurityParam)
+import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..), GenesisInitializer (..),
+                     TestnetBalanceOptions (..))
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..), genBlocksNoApply)
-import           Pos.Launcher.Configuration (ConfigurationOptions (..), HasConfigurations, defaultConfigurationOptions, withConfigurationsM)
+import           Pos.Launcher.Configuration (ConfigurationOptions (..), HasConfigurations,
+                     defaultConfigurationOptions, withConfigurationsM)
 import           Pos.Txp.Logic.Global (txpGlobalSettings)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Test.Pos.Block.Logic.Mode (BlockTestMode, TestParams (..), runBlockTestMode)

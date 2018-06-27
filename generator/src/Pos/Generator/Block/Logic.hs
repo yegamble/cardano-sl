@@ -20,15 +20,15 @@ import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Block.Logic (VerifyBlocksContext (..), applyBlocksUnsafe, createMainBlockInternal,
-                                  normalizeMempool, verifyBlocksPrefix, getVerifyBlocksContext,
-                                  getVerifyBlocksContext')
+import           Pos.Block.Logic (VerifyBlocksContext (..), applyBlocksUnsafe,
+                     createMainBlockInternal, getVerifyBlocksContext, getVerifyBlocksContext',
+                     normalizeMempool, verifyBlocksPrefix)
 import           Pos.Block.Lrc (lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
-import           Pos.Core (EpochOrSlot (..), HasHeaderHash (..), SlotId (..), addressHash, epochIndexL, getEpochOrSlot,
-                           getSlotIndex)
+import           Pos.Core (EpochOrSlot (..), HasHeaderHash (..), SlotId (..), addressHash,
+                     epochIndexL, getEpochOrSlot, getSlotIndex)
 import           Pos.Core.Block (Block, BlockHeader, getBlockHeader)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
@@ -37,8 +37,7 @@ import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, MonadBlockGen,
-                                           MonadBlockGenInit, mkBlockGenContext, usingPrimaryKey,
-                                           withCurrentSlot)
+                     MonadBlockGenInit, mkBlockGenContext, usingPrimaryKey, withCurrentSlot)
 import           Pos.Generator.Block.Param (BlockGenParams, HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
