@@ -32,8 +32,9 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..),
                      MonadBlockApply, MonadBlockVerify,
                      MonadMempoolNormalization, VerifyBlocksContext (..),
                      applyBlocksUnsafe, getVerifyBlocksContext,
-                     getVerifyBlocksContext', normalizeMempool, rollbackBlocksUnsafe,
-                     toSscBlock, toTxpBlock, toUpdateBlock)
+                     getVerifyBlocksContext', normalizeMempool,
+                     rollbackBlocksUnsafe, toSscBlock, toTxpBlock,
+                     toUpdateBlock)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown,
                      slogVerifyBlocks)
@@ -42,7 +43,6 @@ import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG,
                      prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
-import           Pos.Core.Slotting (SlotId)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
@@ -51,8 +51,8 @@ import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Settings
                      (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
-import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.DB (getAdoptedBVFull)
+import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
 import           Pos.Util.Util (HasLens (..))

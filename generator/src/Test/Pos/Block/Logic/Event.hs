@@ -23,11 +23,12 @@ import qualified GHC.Exts as IL
 import           Pos.Block.Logic.VAR (BlockLrcMode, getVerifyBlocksContext',
                      rollbackBlocks, verifyAndApplyBlocks)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, HeaderHash, EpochOrSlot (..), Block, getEpochOrSlot)
+import           Pos.Core (Block, EpochOrSlot (..), HasConfiguration,
+                     HeaderHash, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, OldestFirst)
+import           Pos.Core.Slotting (SlotId)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
                      dbPureReset)
-import           Pos.Core.Slotting (SlotId)
 import           Pos.Exception (CardanoFatalError (..))
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent,
                      BlockEvent' (..), BlockRollbackFailure (..),

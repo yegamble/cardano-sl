@@ -21,14 +21,15 @@ import           System.Wlog (logWarning)
 
 import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Logic (VerifyBlocksContext (..), applyBlocksUnsafe,
-                     createMainBlockInternal, normalizeMempool, verifyBlocksPrefix,
-                     getVerifyBlocksContext, getVerifyBlocksContext')
+                     createMainBlockInternal, getVerifyBlocksContext,
+                     getVerifyBlocksContext', normalizeMempool,
+                     verifyBlocksPrefix)
 import           Pos.Block.Lrc (lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
-import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash,
-                     epochIndexL, getEpochOrSlot, getSlotIndex)
+import           Pos.Core (EpochOrSlot (..), HasHeaderHash (..), SlotId (..),
+                     addressHash, epochIndexL, getEpochOrSlot, getSlotIndex)
 import           Pos.Core.Block (Block, BlockHeader, getBlockHeader)
 import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Crypto (ProtocolMagic, pskDelegatePk)

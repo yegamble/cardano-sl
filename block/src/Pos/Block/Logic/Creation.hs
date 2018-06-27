@@ -25,10 +25,12 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Block.Logic.Internal (MonadBlockApply, VerifyBlocksContext (..),
-                     applyBlocksUnsafe, normalizeMempool)
+import           Pos.Block.Logic.Internal (MonadBlockApply,
+                     VerifyBlocksContext (..), applyBlocksUnsafe,
+                     normalizeMempool)
 import           Pos.Block.Logic.Util (calcChainQualityM)
-import           Pos.Block.Logic.VAR (verifyBlocksPrefix, getVerifyBlocksContext)
+import           Pos.Block.Logic.VAR (getVerifyBlocksContext,
+                     verifyBlocksPrefix)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
@@ -50,6 +52,8 @@ import           Pos.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo, clearDlgMemPool, getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics,
+                     modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Lrc (HasLrcContext)
@@ -69,6 +73,7 @@ import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock,
                      usPreparePayload)
 import           Pos.Util (_neHead)
+import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.
