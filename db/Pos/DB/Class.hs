@@ -58,7 +58,6 @@ import           Data.Conduit (ConduitT, transPipe)
 import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class (Bi, decodeFull')
 import           Pos.Binary.Class (Bi, DecoderAttrKind (..), decodeFull')
 import           Pos.Core (Block, BlockHeader, BlockVersionData (..), EpochIndex, HasConfiguration,
                      HeaderHash, isBootstrapEra)
