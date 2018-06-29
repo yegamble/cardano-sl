@@ -65,7 +65,7 @@ _exampleSpec = GenSpec
     { walletSpec = WalletSpec
         { accounts = 1
         , accountSpec = AccountSpec { addresses = 100 }
-        , fakeUtxoCoinDistr = RangeDistribution { amount = 1000, range = 100 }
+        , fakeUtxoCoinDistr = RangeDistribution 1000 100
         , fakeTxsHistory = SimpleTxsHistory { txsCount = 100, numOutgoingAddress = 3 }
         }
     , wallets = 1
@@ -109,14 +109,12 @@ instance ToJSON AccountSpec
 -- have around 80 000 addresses which is a lot and can be intensive?
 -- For now, KISS.
 data FakeUtxoCoinDistribution
+    --  Do not distribute the coins.
     = NoDistribution
-    -- ^ Do not distribute the coins.
-    | RangeDistribution
-        { range  :: !Integer
-        -- ^ Distributes to only XX addresses.
-        , amount :: !Integer
-        -- ^ The amount we want to distribute to those addresses.
-        }
+    -- RangeDistribution range amount
+    | RangeDistribution !Integer !Integer
+        -- ^ range: Distributes to only XX addresses.
+        -- ^ amount: The amount we want to distribute to those addresses.
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)
 
@@ -342,7 +340,7 @@ generateRealTxHistE outputAddresses = do
 
 generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
 generateFakeUtxo NoDistribution _          = pure ()
-generateFakeUtxo RangeDistribution{..} aId = do
+generateFakeUtxo (RangeDistribution range amount) aId = do
 
     db <- askWalletDB
     ws <- getWalletSnapshot db
