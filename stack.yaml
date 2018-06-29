@@ -6,11 +6,50 @@ flags:
 
 extra-package-dbs: []
 
-# util -> networking → binary →  crypto → core → db → [lrc, infra]
-#              → [ssc, txp, update, delegation] → block → lib → ...
-# Then we have two branches:
-# ... → client → generator → [auxx, explorer, wallet] → wallet-new
-# ... → [node, tools]
+#################################################################################
+# Dependency graph
+#################################################################################
+#
+#                    tools        wallet-new
+#                         ↘      ↙
+#          auxx  explorer  wallet
+#              ↘     ↓    ↙      \
+#                generator        \
+#                    ↓             \
+#                  client  node     |
+#                    ↓      |       ↓
+#     +-------------lib←----+     node-ipc
+#     |              ↓              |
+#     |            block            |
+#     |           /  |  \           |
+#     |         ↙    ↓   ↘          |
+#     |  delegation ssc update      |
+#     |          \   |   /          |
+#     |           ↘  ↓ ↙            |
+#     |             lrc             |
+#     |               ↘             |
+#     |                txp          |
+#     |                  ↘          |
+#     |                  infra←-----+
+#     |                    ↓
+#     |                   db
+#     |                    ↓
+#     |                  core
+#     |                 ↙    \
+#     |              crypto   \
+#     |                ↓       ↓
+#     |            binary    networking
+#     ↓                 ↘    ↙
+#  acid-state-exts       util
+#
+#
+#################################################################################
+# dot command for PNG graph
+#################################################################################
+#
+# # (must modify prune list if new packages are added)
+# $ stack dot --prune cardano-sl-crypto-test,cardano-sl-infra-test,cardano-sl-core-test,cardano-sl-update-test,cardano-sl-util-test,cardano-sl-delegation-test,cardano-sl-lrc-test,cardano-sl-txp-test,cardano-sl-binary-test,cardano-sl-block-test,cardano-sl-block-bench | tred | dot -Tpng -o cardano-sl.png
+
 packages:
 - util
 - util/test
