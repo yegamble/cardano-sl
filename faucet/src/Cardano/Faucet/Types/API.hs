@@ -18,18 +18,18 @@ module Cardano.Faucet.Types.API (
   ) where
 
 import           Control.Lens hiding ((.=))
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.=))
-import Data.Monoid ((<>))
-import           Data.Text (Text)
+import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
+                             (.:), (.=))
 import qualified Data.Char as Char
+import           Data.Monoid ((<>))
+import           Data.Text (Text)
 -- import           Data.Text (Text)
+import           Data.Proxy
+import           Data.Swagger
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
-import           Data.Swagger
-import Data.Proxy
 
 import           Cardano.Wallet.API.V1.Types (Transaction, V1 (..))
-import           Cardano.Wallet.Client (ClientError (..))
 import           Pos.Core (Address (..), Coin (..))
 
 

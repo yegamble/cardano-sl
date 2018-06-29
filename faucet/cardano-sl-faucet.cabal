@@ -35,6 +35,7 @@ library
                      , ekg-statsd
                      , exceptions
                      , filepath
+                     , http-api-data
                      , http-client
                      , http-client-tls
                      , lens
@@ -52,14 +53,18 @@ library
                      , servant-swagger
                      , servant-swagger-ui
                      , swagger2
+                     , tagged
                      , text
                      , text-format
+                     , time
                      , tls
+                     , wreq
   exposed-modules:
                       Cardano.Faucet
                       Cardano.Faucet.Swagger
                     , Cardano.Faucet.Types.Config
                     , Cardano.Faucet.Types.API
+                    , Cardano.Faucet.Types.Recaptcha
                     , Cardano.Faucet.Types
                     , Cardano.Faucet.Metrics
                     , Cardano.Faucet.Init

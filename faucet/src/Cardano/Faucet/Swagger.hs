@@ -2,8 +2,8 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE RecordWildCards #-}
 module Cardano.Faucet.Swagger
     ( FaucetDoc
     , swaggerServer
@@ -26,8 +26,10 @@ import           Servant.Swagger.UI (SwaggerSchemaUI)
 
 import           Cardano.Wallet.API.V1.Swagger
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util.CompileInfo (CompileTimeInfo(..), HasCompileInfo, compileInfo)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                                           curSoftwareVersion)
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo,
+                                       compileInfo)
 
 import           Cardano.Faucet
 import           Cardano.Faucet.Types
@@ -36,6 +38,7 @@ import           Servant
 type FaucetDoc = SwaggerSchemaUI "docs" "swagger.json"
 
 type FaucetDocAPI = FaucetDoc :<|> FaucetAPI
+
 
 faucetDocAPI :: Proxy FaucetDocAPI
 faucetDocAPI = Proxy
@@ -71,7 +74,8 @@ swaggerServer :: (HasCompileInfo) => Server FaucetDoc
 swaggerServer = swaggerSchemaUIServer (mkSwagger compileInfo faucetServerAPI)
 
 faucetHandler :: HasCompileInfo => FaucetEnv -> Server FaucetDocAPI
-faucetHandler env = swaggerServer :<|> hoistServer faucetServerAPI (nat env) faucetServer
+faucetHandler env = swaggerServer
+               :<|> hoistServer faucetServerAPI (nat env) faucetServer
   where
       nat :: FaucetEnv -> M a -> Handler a
       nat e = Handler . ExceptT . runM e

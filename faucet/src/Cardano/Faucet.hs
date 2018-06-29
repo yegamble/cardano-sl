@@ -1,18 +1,22 @@
 {-# LANGUAGE ConstraintKinds   #-}
 {-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.Faucet (
-    faucetServer
+    FaucetAPI
+  , faucetServer
   , faucetServerAPI
-  , FaucetAPI
   , module Cardano.Faucet.Types
   , module Cardano.Faucet.Init
   ) where
 
 import           Control.Lens
+import           Control.Monad.IO.Class (liftIO)
+import           Data.ByteString.Lens (packedChars)
 import           Data.Monoid ((<>))
+import           Data.Tagged (retag)
 import           Data.Text.Lens
 import           Servant
 import           System.Wlog (LoggerName (..), logError, logInfo, withSublogger)
@@ -24,29 +28,48 @@ import qualified Cardano.WalletClient as Client
 import           Cardano.Faucet.Init
 import           Cardano.Faucet.Metrics
 import           Cardano.Faucet.Types
+import           Cardano.Faucet.Types.Recaptcha
 
 -- | Top level type of the faucet API
-type FaucetAPI = "withdraw" :> Summary "Requests some ADA from the faucet"
-                            :> ReqBody '[JSON] WithdrawlRequest :> Post '[JSON] WithdrawlResult
-      -- :<|> "_deposit" :> ReqBody '[JSON] DepositRequest :> Post '[JSON] DepositResult
+type FaucetAPI = "api" :> "withdraw" :> Summary "Requests some ADA from the faucet"
+                                     :> ReqBody '[JSON] WithdrawlRequest :> Post '[JSON] WithdrawlResult
+                :<|> "withdraw" :> Summary "Requests ADA from the faucet via recaptcha enabled form"
+                                :> ReqBody '[FormUrlEncoded] WithdrawlFormRequest :> Post '[JSON] WithdrawlResult
+                :<|> Raw
+         -- :<|> "_deposit" :> ReqBody '[JSON] DepositRequest :> Post '[JSON] DepositResult
+
+faucetServerAPI :: Proxy FaucetAPI
+faucetServerAPI = Proxy
+
+formWithdraw :: (MonadFaucet c m) => WithdrawlFormRequest -> m WithdrawlResult
+formWithdraw wfr = do
+    -- TODO: Get this from the config
+    let cr = CaptchaRequest "6LcnOGEUAAAAAIKNGv6KixvBufGdfWxOB1QQRqdJ" (wfr ^. gRecaptchaResponse)
+        wr = WithdrawlRequest (wfr ^. wfAddress)
+    captchaResp <- liftIO $ captchaRequest cr
+    logInfo ("Captcha: " <> (captchaResp ^. to show . packed))
+    if captchaResp ^. success
+       then withdraw wr
+       else throwError $ err500 { errBody = captchaResp ^. errorCodes . to show . packedChars }
 
 -- | Handler for the withdrawl of ADA from the faucet
 withdraw :: (MonadFaucet c m) => WithdrawlRequest -> m WithdrawlResult
-withdraw wd = withSublogger (LoggerName "withdraw") $ do
-    resp <- Client.withdraw (wd ^. wAddress)
+withdraw wr = withSublogger (LoggerName "withdraw") $ do
+    resp <- Client.withdraw (wr ^. wAddress)
     case resp of
         Left err -> do
-            logError ("Error withdrawing " <> (wd ^. to show . packed)
+            logError ("Error withdrawing " <> (wr ^. to show . packed)
                                            <> " error: "
                                            <> (err ^. to show . packed))
             return $ WithdrawlError (show err ^. packed)
-        Right wr -> do
-            let txn = wrData wr
+        Right withDrawResp -> do
+            let txn = wrData withDrawResp
                 amount = unV1 $ txAmount txn
-            logInfo ((wd ^. to show . packed) <> " withdrew: "
+            logInfo ((withDrawResp ^. to show . packed) <> " withdrew: "
                                               <> (amount ^. to show . packed))
             incWithDrawn amount
             return $ WithdrawlSuccess txn
+
 -- | Function to _deposit funds back into the faucet /not implemented/
 _deposit :: (MonadFaucet c m) => DepositRequest -> m DepositResult
 _deposit dr = withSublogger (LoggerName "_deposit") $ do
@@ -54,8 +77,8 @@ _deposit dr = withSublogger (LoggerName "_deposit") $ do
     logInfo ((dr ^. to show . packed) <> " deposited")
     return DepositResult
 
+-- | Serve the api, faucet form end point and a Raw endpoint for the html form
+--
+-- TODO: Get the server path from the config
 faucetServer :: ServerT FaucetAPI M
-faucetServer = withdraw -- :<|> _deposit
-
-faucetServerAPI :: Proxy FaucetAPI
-faucetServerAPI = Proxy
+faucetServer = withdraw :<|> formWithdraw :<|> (retag $ serveDirectoryWebApp ".")

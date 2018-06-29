@@ -2,12 +2,13 @@
 , bytestring, cardano-sl-core, cardano-sl-crypto, cardano-sl-update
 , cardano-sl-util, cardano-sl-wallet, cardano-sl-wallet-new
 , connection, cryptonite, data-default, directory, ekg, ekg-core
-, ekg-statsd, exceptions, filepath, http-client, http-client-tls
-, lens, log-warper, memory, mmorph, mtl, optparse-applicative
-, QuickCheck, random, serokell-util, servant, servant-client
-, servant-client-core, servant-server, servant-swagger
-, servant-swagger-ui, stdenv, swagger2, text, text-format, tls, wai
-, wai-cors, wai-extra, warp
+, ekg-statsd, exceptions, filepath, http-api-data, http-client
+, http-client-tls, lens, log-warper, memory, mmorph, mtl
+, neat-interpolation, optparse-applicative, QuickCheck, random
+, serokell-util, servant, servant-client, servant-client-core
+, servant-server, servant-swagger, servant-swagger-ui, stdenv
+, swagger2, tagged, text, text-format, time, tls, wai, wai-cors
+, wai-extra, warp, wreq
 }:
 mkDerivation {
   pname = "cardano-sl-faucet";
@@ -20,10 +21,11 @@ mkDerivation {
     cardano-sl-core cardano-sl-crypto cardano-sl-update cardano-sl-util
     cardano-sl-wallet cardano-sl-wallet-new connection cryptonite
     data-default directory ekg-core ekg-statsd exceptions filepath
-    http-client http-client-tls lens log-warper memory mmorph mtl
-    QuickCheck random serokell-util servant servant-client
-    servant-client-core servant-server servant-swagger
-    servant-swagger-ui swagger2 text text-format tls
+    http-api-data http-client http-client-tls lens log-warper memory
+    mmorph mtl neat-interpolation QuickCheck random serokell-util
+    servant servant-client servant-client-core servant-server
+    servant-swagger servant-swagger-ui swagger2 tagged text text-format
+    time tls wreq
   ];
   executableHaskellDepends = [
     aeson base bytestring cardano-sl-core cardano-sl-update

@@ -13,23 +13,15 @@ import           Control.Lens
 import           Data.Aeson (eitherDecode)
 import           Data.ByteString.Lazy as BSL
 import           Network.Wai.Handler.Warp (run)
+import           Pos.Util.CompileInfo (withCompileInfo)
 import           Servant
 import           System.Environment (getArgs)
 import           System.Remote.Monitoring (forkServer, serverMetricStore)
 import           System.Remote.Monitoring.Statsd (forkStatsd)
 import           System.Wlog (LoggerName (..), launchFromFile)
--- import           Cardano.Wallet.API.V1.Types (PaymentSource (..), WalletId(..), AccountIndex)
-import           Pos.Util.CompileInfo (withCompileInfo)
--- import Pos.Update.Configuration (withUpdateConfiguration)
 
 import           Cardano.Faucet
 import           Cardano.Faucet.Swagger
-
--- type API = FaucetDoc :<|> FaucetAPI
-
--- api :: Proxy API
--- api = Proxy
-
 
 main :: IO ()
 main = withCompileInfo $ do
