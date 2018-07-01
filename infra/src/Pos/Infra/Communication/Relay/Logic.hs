@@ -394,16 +394,10 @@ dataFlow logTrace what enqueue msg dt = handleAny handleE $ do
 ----------------------------------------------------------------------------
 
 data InvReqDataFlowLog =
-      InvReqAccepted
-        { invReqStart    :: !Integer
-        , invReqReceived :: !Integer
-        , invReqSent     :: !Integer
-        , invReqClosed   :: !Integer
-        }
-    | InvReqRejected
-        { invReqStart    :: !Integer
-        , invReqReceived :: !Integer
-        }
+      -- InvReqAccepted invReqStart invReqReceived invReqSent invReqClosed
+      InvReqAccepted !Integer !Integer !Integer !Integer
+      -- InvReqRejected invReqStart invReqRece
+    | InvReqRejected !Integer !Integer
     | InvReqException !Text
     deriving Show
 
