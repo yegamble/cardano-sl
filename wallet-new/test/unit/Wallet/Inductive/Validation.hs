@@ -45,17 +45,17 @@ data ValidatedInductive h a = ValidatedInductive {
 
 data InductiveValidationError h a =
     -- | Bootstrap transaction is invalid
-    -- | InductiveInvalidBoot
-        -- | inductiveInvalidBoot  -- The bootstrap transaction
-        -- | inductiveInvalidError -- The error message
+    -- InductiveInvalidBoot
+        -- inductiveInvalidBoot  -- The bootstrap transaction
+        -- inductiveInvalidError -- The error message
     InductiveInvalidBoot !(Transaction h a) !(Text)
 
     -- | Invalid transaction in the given block
-    -- | InductiveInvalidApplyBlock
-        -- | inductiveInvalidEvents      -- The events leading up to the error
-        -- | inductiveInvalidBlockPrefix -- Successfully validated transactions
-        -- | inductiveInvalidTransaction -- The transaction that was invalid
-        -- | inductiveInvalidError       -- The error message
+    -- InductiveInvalidApplyBlock
+        -- inductiveInvalidEvents      -- The events leading up to the error
+        -- inductiveInvalidBlockPrefix -- Successfully validated transactions
+        -- inductiveInvalidTransaction -- The transaction that was invalid
+        -- inductiveInvalidError       -- The error message
   | InductiveInvalidApplyBlock
         (OldestFirst [] (WalletEvent h a))
         (OldestFirst [] (Transaction h a))
@@ -63,21 +63,21 @@ data InductiveValidationError h a =
         Text
 
     -- | A 'NewPending' call was invalid because the input was already spent
-    -- | InductiveInvalidNewPendingAlreadySpent
-        -- | inductiveInvalidEvents      -- The events leading up to the error
-        -- | inductiveInvalidTransaction -- The transaction that was invalid
-        -- | inductiveInvalidInput       -- The specific input that was not valid
+    -- InductiveInvalidNewPendingAlreadySpent
+        -- inductiveInvalidEvents      -- The events leading up to the error
+        -- inductiveInvalidTransaction -- The transaction that was invalid
+        -- inductiveInvalidInput       -- The specific input that was not valid
   | InductiveInvalidNewPendingAlreadySpent
         (OldestFirst [] (WalletEvent h a))
         (Transaction h a)
         (Input h a)
 
     -- | A 'NewPending' call was invalid because the input was not @ours@
-    -- | InductiveInvalidNewPendingNotOurs
-        -- | inductiveInvalidEvents      -- The events leading up to the error
-        -- | inductiveInvalidTransaction -- The transaction that was invalid
-        -- | inductiveInvalidInput       -- The specific input that was not valid
-        -- | inductiveInvalidAddress     -- The address this input belonged to
+    -- InductiveInvalidNewPendingNotOurs
+        -- inductiveInvalidEvents      -- The events leading up to the error
+        -- inductiveInvalidTransaction -- The transaction that was invalid
+        -- inductiveInvalidInput       -- The specific input that was not valid
+        -- inductiveInvalidAddress     -- The address this input belonged to
   | InductiveInvalidNewPendingNotOurs
         (OldestFirst [] (WalletEvent h a))
         (Transaction h a)
@@ -141,9 +141,9 @@ inductiveIsValid Inductive{..} = do
             Nothing ->
               throwError
                   $ InductiveInvalidNewPendingAlreadySpent
-                       (toOldestFirst viEvents)
-                       t
-                       input
+                        (toOldestFirst viEvents)
+                        t
+                        input
 
             Just addr ->
               unless (addr `Set.member` inductiveOurs) .
@@ -192,8 +192,8 @@ inductiveIsValid Inductive{..} = do
 
 instance (Hash h a, Buildable a) => Buildable (InductiveValidationError h a) where
   build (InductiveInvalidBoot
-             inductiveInvalidBoot
-             inductiveInvalidError) =
+            inductiveInvalidBoot
+            inductiveInvalidError) =
     bprint
     ( "InductiveInvalidBoot"
     % "{ boot:  " % build
@@ -219,9 +219,9 @@ instance (Hash h a, Buildable a) => Buildable (InductiveValidationError h a) whe
     inductiveInvalidTransaction
     inductiveInvalidError
   build (InductiveInvalidNewPendingAlreadySpent
-             inductiveInvalidEvents
-             inductiveInvalidTransaction
-             inductiveInvalidInput) =
+            inductiveInvalidEvents
+            inductiveInvalidTransaction
+            inductiveInvalidInput) =
     bprint
     ( "InductiveInvalidNewPendingAlreadySpent"
     % "{ events:      " % build
@@ -233,10 +233,10 @@ instance (Hash h a, Buildable a) => Buildable (InductiveValidationError h a) whe
     inductiveInvalidTransaction
     inductiveInvalidInput
   build (InductiveInvalidNewPendingNotOurs
-              inductiveInvalidEvents
-              inductiveInvalidTransaction
-              inductiveInvalidInput
-              inductiveInvalidAddress) =
+            inductiveInvalidEvents
+            inductiveInvalidTransaction
+            inductiveInvalidInput
+            inductiveInvalidAddress) =
     bprint
     ( "InductiveInvalidNewPendingNotOurs"
     % "{ events:      " % build

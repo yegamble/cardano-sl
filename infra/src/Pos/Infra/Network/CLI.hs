@@ -259,9 +259,9 @@ launchStaticConfigMonitoring topology = liftIO action
   where
     action =
         case topology of
-            T.TopologyCore {topologyStaticPeers = T.StaticPeers {..}} ->
+            (T.TopologyCore (T.StaticPeers {..}) _) ->
                 staticPeersMonitoring
-            T.TopologyRelay {topologyStaticPeers = T.StaticPeers {..}} ->
+            (T.TopologyRelay (T.StaticPeers {..}) _ _ _ _ _) ->
                 staticPeersMonitoring
             _ -> pass
 
@@ -310,19 +310,26 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                             "TopologyStatic doesn't require kademlia, but it was passed"
                         pure Nothing
             topology <- case nmType of
-                T.NodeCore  -> return T.TopologyCore{..}
-                T.NodeRelay -> return T.TopologyRelay {
-                                 topologyStaticPeers,
-                                 topologyDnsDomains = nmSubscribe,
-                                 topologyValency    = nmValency,
-                                 topologyFallbacks  = nmFallbacks,
-                                 topologyOptKademlia,
-                                 topologyMaxSubscrs = nmMaxSubscrs
-                               }
+                T.NodeCore  -> return $
+                                   T.TopologyCore
+                                       topologyStaticPeers
+                                       topologyOptKademlia
+                T.NodeRelay -> return $
+                                   T.TopologyRelay
+                                       topologyStaticPeers
+                                       nmSubscribe
+                                       nmValency
+                                       nmFallbacks
+                                       topologyOptKademlia
+                                       nmMaxSubscrs
+
                 T.NodeEdge  -> throwM NetworkConfigSelfEdge
             tcpAddr <- createTcpAddr topologyOptKademlia
             pure (topology, tcpAddr)
-        Y.TopologyBehindNAT{..} -> do
+        (Y.TopologyBehindNAT
+            topologyValency
+            topologyFallbacks
+            topologyDnsDomains) -> do
           -- Behind-NAT topology claims no address for the transport, and also
           -- throws an exception if the --listen parameter is given, to avoid
           -- confusion: if a user gives a --listen parameter then they probably
@@ -334,17 +341,29 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
               "BehindNAT topology is used, no bind address is expected"
           when (isJust ncoExternalAddress) $ throwM $ RedundantCliParameter $
               "BehindNAT topology is used, no external address is expected"
-          pure (T.TopologyBehindNAT{..}, TCP.Unaddressable)
+          pure (T.TopologyBehindNAT
+                    topologyValency
+                    topologyFallbacks
+                    topologyDnsDomains
+               , TCP.Unaddressable)
         Y.TopologyP2P{..} -> do
           kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
           tcpAddr <- createTcpAddr (Just kparams)
-          pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
-               , tcpAddr )
+          pure (T.TopologyP2P
+                    topologyValency
+                    topologyFallbacks
+                    kparams
+                    topologyMaxSubscrs
+               , tcpAddr)
         Y.TopologyTraditional{..} -> do
               kparams <- either throwM return =<< liftIO getKademliaParamsFromFile
               tcpAddr <- createTcpAddr (Just kparams)
-              pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}
-                   , tcpAddr )
+              pure (T.TopologyTraditional
+                        topologyValency
+                        topologyFallbacks
+                        kparams
+                        topologyMaxSubscrs
+                   , tcpAddr)
 
     (enqueuePolicy, dequeuePolicy, failurePolicy) <- case ncoPolicies of
         -- If no policy file is given we just use the default derived from the

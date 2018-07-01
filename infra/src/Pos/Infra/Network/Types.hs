@@ -140,53 +140,45 @@ data Topology kademlia =
     -- | All peers of the node have been statically configured
     --
     -- This is used for core and relay nodes
-    TopologyCore {
-        topologyStaticPeers :: !StaticPeers
-      , topologyOptKademlia :: !(Maybe kademlia)
-      }
+    -- TopologyCore topologyStaticPeers topologyOptKademlia
+    TopologyCore !StaticPeers !(Maybe kademlia)
 
-  | TopologyRelay {
-        -- We can use static peers or dynamic subscriptions.
-        -- We typically use on or the other but not both.
-        topologyStaticPeers :: !StaticPeers
-      , topologyDnsDomains  :: !(DnsDomains DNS.Domain)
-      , topologyValency     :: !Valency
-      , topologyFallbacks   :: !Fallbacks
-      , topologyOptKademlia :: !(Maybe kademlia)
-      , topologyMaxSubscrs  :: !OQ.MaxBucketSize
-      }
+    -- | TopologyRelay
+    -- |    topologyStaticPeers
+    -- |    topologyDnsDomains
+    -- |    topologyValency
+    -- |    topologyFallbacks
+    -- |    topologyOptKademlia
+    -- |    topologyMaxSubscrs
+    -- We can use static peers or dynamic subscriptions.
+    -- We typically use on or the other but not both.
+  | TopologyRelay
+        !StaticPeers
+        !(DnsDomains DNS.Domain)
+        !Valency
+        !Fallbacks
+        !(Maybe kademlia)
+        !OQ.MaxBucketSize
 
     -- | We discover our peers through DNS
     --
     -- This is used for behind-NAT nodes.
-  | TopologyBehindNAT {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyDnsDomains :: !(DnsDomains DNS.Domain)
-      }
+    -- TopologyBehindNAT topologyValency topologyFallbacks topologyDnsDomains
+  | TopologyBehindNAT !Valency !Fallbacks !(DnsDomains DNS.Domain)
 
     -- | We discover our peers through Kademlia
-  | TopologyP2P {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyKademlia   :: !kademlia
-      , topologyMaxSubscrs :: !OQ.MaxBucketSize
-      }
+    -- | TopologyP2P topologyValency topologyFallback topologyKademlia topologyMaxSubscrs
+  | TopologyP2P !Valency !Fallbacks !kademlia !OQ.MaxBucketSize
 
     -- | We discover our peers through Kademlia, and every node in the network
     -- is a core node.
-  | TopologyTraditional {
-        topologyValency    :: !Valency
-      , topologyFallbacks  :: !Fallbacks
-      , topologyKademlia   :: !kademlia
-      , topologyMaxSubscrs :: !OQ.MaxBucketSize
-      }
+    -- TopologyTraditional topologyValency topologyFallbacks topologyKademlia topologyMaxSubscrs
+  | TopologyTraditional !Valency !Fallbacks !kademlia !OQ.MaxBucketSize
 
     -- | Auxx simulates "real" edge nodes, but is configured with
     -- a static set of relays.
-  | TopologyAuxx {
-        topologyRelays :: ![NodeId]
-      }
+    -- TopologyAuxx topologyRelays
+  | TopologyAuxx  ![NodeId]
   deriving (Show)
 
 ----------------------------------------------------------------------------
@@ -227,20 +219,26 @@ getNodeTypeDefault =
 -- unpriviledged relays. See the networking policy document for full details of
 -- why this makes sense or works.
 topologySubscribers :: Topology kademlia -> Maybe (NodeType, OQ.MaxBucketSize)
-topologySubscribers TopologyCore{}          = Nothing
-topologySubscribers TopologyRelay{..}       = Just (NodeEdge, topologyMaxSubscrs)
-topologySubscribers TopologyBehindNAT{}     = Nothing
-topologySubscribers TopologyP2P{..}         = Just (NodeRelay, topologyMaxSubscrs)
-topologySubscribers TopologyTraditional{..} = Just (NodeCore, topologyMaxSubscrs)
-topologySubscribers TopologyAuxx{}          = Nothing
+topologySubscribers TopologyCore{}                                 =
+    Nothing
+topologySubscribers (TopologyRelay _ _ _ _ _ topologyMaxSubscrs)   =
+    Just (NodeEdge, topologyMaxSubscrs)
+topologySubscribers TopologyBehindNAT{}                            =
+    Nothing
+topologySubscribers (TopologyP2P _ _ _ topologyMaxSubscrs)         =
+    Just (NodeRelay, topologyMaxSubscrs)
+topologySubscribers (TopologyTraditional _ _ _ topologyMaxSubscrs) =
+    Just (NodeCore, topologyMaxSubscrs)
+topologySubscribers TopologyAuxx{}                                 =
+    Nothing
 
 -- | Assumed type for unknown nodes
 topologyUnknownNodeType :: Topology kademlia -> OQ.UnknownNodeType NodeId
 topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
   where
     go :: Topology kademlia -> NodeId -> NodeType
-    go TopologyCore{..}      = const NodeRelay  -- to allow dynamic reconfig
-    go TopologyRelay{..}     = const NodeEdge   -- since we don't trust anyone
+    go TopologyCore{}        = const NodeRelay  -- to allow dynamic reconfig
+    go TopologyRelay{}       = const NodeEdge   -- since we don't trust anyone
     go TopologyTraditional{} = const NodeCore
     go TopologyP2P{}         = const NodeRelay  -- a fairly normal expected case
     go TopologyBehindNAT{}   = const NodeEdge   -- should never happen
@@ -254,22 +252,26 @@ data SubscriptionWorker =
 topologySubscriptionWorker :: Topology kademlia -> Maybe SubscriptionWorker
 topologySubscriptionWorker = go
   where
-    go TopologyCore{}          = Nothing
-    go TopologyRelay{topologyDnsDomains = DnsDomains []}
-                               = Nothing
-    go TopologyRelay{..}       = Just $ SubscriptionWorkerBehindNAT
-                                          topologyDnsDomains
-    go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
-                                          topologyDnsDomains
-    go TopologyP2P{..}         = Just $ SubscriptionWorkerKademlia
-                                          NodeRelay
-                                          topologyValency
-                                          topologyFallbacks
-    go TopologyTraditional{..} = Just $ SubscriptionWorkerKademlia
-                                          NodeCore
-                                          topologyValency
-                                          topologyFallbacks
-    go TopologyAuxx{}   = Nothing
+    go (TopologyCore _ _)          = Nothing
+    go (TopologyRelay _ (DnsDomains []) _ _ _ _)
+                                   = Nothing
+    go (TopologyRelay _ topologyDnsDomains _ _ _ _)
+                                   = Just $ SubscriptionWorkerBehindNAT
+                                         topologyDnsDomains
+    go (TopologyBehindNAT _ _ topologyDnsDomains)
+                                   = Just $ SubscriptionWorkerBehindNAT
+                                         topologyDnsDomains
+    go (TopologyP2P topologyValency topologyFallbacks _ _)
+                                   = Just $ SubscriptionWorkerKademlia
+                                         NodeRelay
+                                         topologyValency
+                                         topologyFallbacks
+    go (TopologyTraditional topologyValency topologyFallbacks _ _)
+                                   = Just $ SubscriptionWorkerKademlia
+                                         NodeCore
+                                         topologyValency
+                                         topologyFallbacks
+    go (TopologyAuxx _)            = Nothing
 
 -- | Should we register to the Kademlia network? If so, is it essential that we
 -- successfully join it (contact at least one existing peer)? Second component
@@ -277,12 +279,18 @@ topologySubscriptionWorker = go
 topologyRunKademlia :: Topology kademlia -> Maybe (kademlia, Bool)
 topologyRunKademlia = go
   where
-    go TopologyCore{..}        = flip (,) False <$> topologyOptKademlia
-    go TopologyRelay{..}       = flip (,) False <$> topologyOptKademlia
-    go TopologyBehindNAT{}     = Nothing
-    go TopologyP2P{..}         = Just (topologyKademlia, True)
-    go TopologyTraditional{..} = Just (topologyKademlia, True)
-    go TopologyAuxx{}          = Nothing
+    go (TopologyCore _ topologyOptKademlia)          =
+           flip (,) False <$> topologyOptKademlia
+    go (TopologyRelay _ _ _ _ topologyOptKademlia _) =
+           flip (,) False <$> topologyOptKademlia
+    go TopologyBehindNAT{}                           =
+           Nothing
+    go (TopologyP2P _ _ topologyKademlia _)          =
+           Just (topologyKademlia, True)
+    go (TopologyTraditional _ _ topologyKademlia _)  =
+        Just (topologyKademlia, True)
+    go TopologyAuxx{}                                =
+           Nothing
 
 -- | Enqueue policy for the given topology
 topologyEnqueuePolicy :: Topology kademia -> OQ.EnqueuePolicy NodeId
@@ -290,7 +298,7 @@ topologyEnqueuePolicy = go
   where
     go TopologyCore{}        = Policy.defaultEnqueuePolicyCore
     go TopologyRelay{}       = Policy.defaultEnqueuePolicyRelay
-    go TopologyBehindNAT{..} = Policy.defaultEnqueuePolicyEdgeBehindNat
+    go TopologyBehindNAT{}   = Policy.defaultEnqueuePolicyEdgeBehindNat
     go TopologyP2P{}         = Policy.defaultEnqueuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultEnqueuePolicyCore
     go TopologyAuxx{}        = Policy.defaultEnqueuePolicyAuxx
@@ -301,7 +309,7 @@ topologyDequeuePolicy = go
   where
     go TopologyCore{}        = Policy.defaultDequeuePolicyCore
     go TopologyRelay{}       = Policy.defaultDequeuePolicyRelay
-    go TopologyBehindNAT{..} = Policy.defaultDequeuePolicyEdgeBehindNat
+    go TopologyBehindNAT{}   = Policy.defaultDequeuePolicyEdgeBehindNat
     go TopologyP2P{}         = Policy.defaultDequeuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultDequeuePolicyCore
     go TopologyAuxx{}        = Policy.defaultDequeuePolicyAuxx
@@ -325,12 +333,18 @@ topologyMaxBucketSize topology bucket =
 
 topologyHealthStatus :: MonadIO m => Topology kademlia -> OutboundQ msg nid Bucket -> m HealthStatus
 topologyHealthStatus topology = case topology of
-    TopologyCore{}        -> const (pure topologyHealthStatusCore)
-    TopologyRelay{..}     -> topologyHealthStatusRelay topologyMaxSubscrs
-    TopologyBehindNAT{}   -> topologyHealthStatusNAT
-    TopologyP2P{}         -> topologyHealthStatusP2P
-    TopologyTraditional{} -> topologyHealthStatusTraditional
-    TopologyAuxx{}        -> topologyHealthStatusAuxx
+    TopologyCore{} ->
+        const (pure topologyHealthStatusCore)
+    (TopologyRelay _ _ _ _ _ topologyMaxSubscrs) ->
+        topologyHealthStatusRelay topologyMaxSubscrs
+    TopologyBehindNAT{} ->
+        topologyHealthStatusNAT
+    TopologyP2P{} ->
+        topologyHealthStatusP2P
+    TopologyTraditional{} ->
+        topologyHealthStatusTraditional
+    TopologyAuxx{} ->
+        topologyHealthStatusAuxx
 
 -- | Core nodes are always healthy.
 topologyHealthStatusCore :: HealthStatus
@@ -394,8 +408,8 @@ topologyRoute53HealthCheckEnabled = go
   where
     go TopologyCore{}        = False
     go TopologyRelay{}       = True
-    go TopologyBehindNAT{..} = False
-    go TopologyP2P{}         = False
+    go TopologyBehindNAT{}   = False
+    go TopologyP2P {}        = False
     go TopologyTraditional{} = False
     go TopologyAuxx{}        = False
 
@@ -465,11 +479,11 @@ initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
       TopologyTraditional{} ->
         -- Kademlia worker is responsible for adding peers
         return ()
-      TopologyCore{topologyStaticPeers = StaticPeers{..}} ->
+      (TopologyCore StaticPeers{..} _) ->
         staticPeersOnChange $ \peers -> do
           OQ.clearRecentFailures oq
           void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
-      TopologyRelay{topologyStaticPeers = StaticPeers{..}} ->
+      (TopologyRelay (StaticPeers{..}) _ _ _ _ _) ->
         staticPeersOnChange $ \peers -> do
           OQ.clearRecentFailures oq
           void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers)
