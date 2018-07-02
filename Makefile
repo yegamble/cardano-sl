@@ -4,18 +4,16 @@ help: ## Print documentation
 lint: ## Run hlint for the project
 	./scripts/haskell/lint.sh
 
+ghcid: ## Run ghcid with the wallet-new project
+	ghcid \
+	    --command "stack ghci cardano-sl-networking --ghci-options=-fno-code" \
+	    -o ghcid.txt
+
 stylish: ## Run stylish-haskell on the entire project
 	./scripts/haskell/stylish.sh
 
 build-all: ## Build everything, including benchmarks and tests, but don't run them
 	stack build --fast --bench --no-run-benchmarks --test --no-run-tests
-
-ghcid: ## Pass DIR=package-directory to run that directory's ghcid command.
-ifeq ($(DIR),)
-	echo "You must specify the package directory for this command."
-else
-	cd $(DIR) && make ghcid
-endif
 
 ghcid-test: ## Pass DIR=package-directory to run that directory's ghcid command.
 ifeq ($(DIR),)
