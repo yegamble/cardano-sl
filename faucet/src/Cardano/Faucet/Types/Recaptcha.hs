@@ -1,8 +1,8 @@
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE TypeFamilies      #-}
 {-# OPTIONS_GHC -Wall #-}
 
 module Cardano.Faucet.Types.Recaptcha
@@ -11,35 +11,39 @@ module Cardano.Faucet.Types.Recaptcha
     , WithdrawlFormRequest(..), wfAddress, gRecaptchaResponse
     , captchaRequest) where
 
-import qualified Network.Wreq as Wreq
-import Network.Wreq (FormParam(..))
-import Control.Lens hiding ((.=))
-import Data.Maybe
-import Data.Typeable
+import           Control.Lens hiding ((.=))
+import           Data.Maybe
 import           Data.Swagger
+import           Data.Typeable
+import           Network.Wreq (FormParam (..))
+import qualified Network.Wreq as Wreq
 -- import Data.Proxy
-import GHC.Generics (Generic)
-import Data.Text (Text)
-import Web.FormUrlEncoded
-import Data.Aeson
-import Data.Time.Clock (UTCTime)
+import           Data.Aeson
+import           Data.Text (Text)
+import           Data.Time.Clock (UTCTime)
+import           GHC.Generics (Generic)
+import           Web.FormUrlEncoded
 
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import           Pos.Core (Address (..))
+
 --------------------------------------------------------------------------------
+-- | Request for sending to google to validate recaptcha
 data CaptchaRequest = CaptchaRequest {
-  _secret :: Text
-, _response :: Text
-} deriving (Generic)
+    -- | The secret given by google
+    _secret   :: Text
+    -- | The "g-recaptcha-response" field sent by the form
+  , _response :: Text
+  } deriving (Generic)
 
 makeLenses ''CaptchaRequest
-
-instance ToJSON CaptchaRequest
 
 --------------------------------------------------------------------------------
 -- | A request to withdraw ADA from the faucet wallet
 data WithdrawlFormRequest = WithdrawlFormRequest {
-    _wfAddress :: !(V1 Address)
+    -- | The address to send the ADA to
+    _wfAddress          :: !(V1 Address)
+    -- | The "g-recaptcha-response" field sent by the form
   , _gRecaptchaResponse :: !Text
   } deriving (Show, Typeable, Generic)
 
@@ -66,11 +70,20 @@ instance ToSchema WithdrawlFormRequest where
           & required .~ ["address", "g-recaptcha-response"]
 
 --------------------------------------------------------------------------------
+-- | Response from google to being sent a 'CaptchaRequest'
 data CaptchaResponse = CaptchaResponse {
-    _success :: Bool
+    -- | Was the recatcha validated as not coming from a bot
+    _success     :: Bool
+    -- | The time of the challenge
+    --
+    -- (Maybe because this isn't present if there are errors)
   , _challengeTS :: Maybe UTCTime
-  , _hostname :: Maybe Text
-  , _errorCodes :: [Text]
+    -- | The hostname serving the form
+    --
+    -- (Maybe because this isn't present if there are errors)
+  , _hostname    :: Maybe Text
+    -- | Any errors present
+  , _errorCodes  :: [Text]
   } deriving (Show)
 
 makeLenses ''CaptchaResponse
@@ -83,6 +96,7 @@ instance FromJSON CaptchaResponse where
       <*> (fromMaybe [] <$> v .:? "error-codes")
 
 
+-- | Makes the 'CaptchaRequest' to google
 captchaRequest :: CaptchaRequest -> IO CaptchaResponse
 captchaRequest cr = do
     resp <- Wreq.asJSON =<< (Wreq.post "https://www.google.com/recaptcha/api/siteverify"

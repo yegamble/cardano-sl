@@ -35,17 +35,23 @@ import           Cardano.Faucet
 import           Cardano.Faucet.Types
 import           Servant
 
+--------------------------------------------------------------------------------
+-- | Swagger UI type
 type FaucetDoc = SwaggerSchemaUI "docs" "swagger.json"
 
+-- | Combined swagger UI and 'FaucetAPI'
 type FaucetDocAPI = FaucetDoc :<|> FaucetAPI
 
 
 faucetDocAPI :: Proxy FaucetDocAPI
 faucetDocAPI = Proxy
 
+--------------------------------------------------------------------------------
+-- | Snippet for current cardano version
 cardanoVersion :: T.Text
 cardanoVersion = "cardano-sl:0"
 
+-- | Header documentation
 faucetMD :: CompileTimeInfo -> T.Text
 faucetMD CompileTimeInfo{..} = [text|
 This is the faucet api documentation
@@ -59,6 +65,8 @@ $cardanoVersion           | $ctiGitRevision
 
  |]
 
+--------------------------------------------------------------------------------
+-- | Constructor for the faucet's swagger
 mkSwagger :: HasSwagger a
     => CompileTimeInfo
     -> Proxy a
@@ -70,9 +78,12 @@ mkSwagger compileInfo walletAPI = toSwagger walletAPI
   & info.description ?~ (faucetMD compileInfo)
   & info.license ?~ ("MIT" & url ?~ URL "https://raw.githubusercontent.com/input-output-hk/cardano-sl/develop/lib/LICENSE")
 
+--------------------------------------------------------------------------------
+-- | Server for the swagger UI
 swaggerServer :: (HasCompileInfo) => Server FaucetDoc
 swaggerServer = swaggerSchemaUIServer (mkSwagger compileInfo faucetServerAPI)
 
+-- | Combined 'swaggerServer' and 'faucetServer'
 faucetHandler :: HasCompileInfo => FaucetEnv -> Server FaucetDocAPI
 faucetHandler env = swaggerServer
                :<|> hoistServer faucetServerAPI (nat env) faucetServer
