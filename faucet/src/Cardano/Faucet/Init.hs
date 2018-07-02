@@ -15,10 +15,10 @@
 module Cardano.Faucet.Init (initEnv) where
 
 import           Control.Concurrent (threadDelay)
-import           Control.Exception (throw)
+import           Control.Exception (catch, throw)
 import           Control.Lens hiding ((.=))
 import           Control.Monad.Except
-import           Data.Aeson (eitherDecode)
+import           Data.Aeson (FromJSON, eitherDecode)
 import           Data.Aeson.Text (encodeToLazyText)
 import           Data.Bifunctor (first)
 import qualified Data.ByteString as BS
@@ -32,26 +32,31 @@ import           Data.Text.Lens (packed)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, newManager)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
-import           Network.TLS (ClientParams (..), credentialLoadX509FromMemory, defaultParamsClient,
-                              onCertificateRequest, onServerCertificate, supportedCiphers)
+import           Network.TLS (ClientParams (..), credentialLoadX509FromMemory,
+                              defaultParamsClient, onCertificateRequest,
+                              onServerCertificate, supportedCiphers)
 import           Network.TLS.Extra.Cipher (ciphersuite_strong)
 import           Servant.Client.Core (BaseUrl (..), Scheme (..))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
+import System.IO.Error (isDoesNotExistError)
 import           System.Metrics (Store, createCounter, createGauge)
 import qualified System.Metrics.Gauge as Gauge
-import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..), logError, logInfo,
-                              withSublogger)
+import           System.Wlog (CanLog, HasLoggerName, LoggerNameBox (..),
+                              logError, logInfo, withSublogger)
 
-import           Cardano.Wallet.API.V1.Types (Account (..), AssuranceLevel (NormalAssurance),
-                                              NewWallet (..), NodeInfo (..), PaymentSource (..),
-                                              SyncPercentage, V1 (..), Wallet (..),
-                                              WalletAddress (..), WalletOperation (CreateWallet),
+import           Cardano.Wallet.API.V1.Types (Account (..),
+                                              AssuranceLevel (NormalAssurance),
+                                              NewWallet (..), NodeInfo (..),
+                                              PaymentSource (..),
+                                              SyncPercentage, V1 (..),
+                                              Wallet (..), WalletAddress (..),
+                                              WalletOperation (CreateWallet),
                                               mkSyncPercentage, unV1)
-import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), WalletResponse (..),
-                                        liftClient)
+import           Cardano.Wallet.Client (ClientError (..), WalletClient (..),
+                                        WalletResponse (..), liftClient)
 import           Cardano.Wallet.Client.Http (mkHttpClient)
-import           Pos.Core (Address (..), Coin (..))
+import           Pos.Core (Coin (..))
 import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 
 import           Cardano.Faucet.Types
@@ -60,8 +65,21 @@ import           Cardano.Faucet.Types
 --------------------------------------------------------------------------------
 -- | Parses a 'SourceWalletConfig' from a file containing JSON
 readSourceWalletConfig :: FilePath -> IO (Either String SourceWalletConfig)
-readSourceWalletConfig = fmap eitherDecode . BSL.readFile
+readSourceWalletConfig = readJSON
 
+readJSON :: FromJSON a => FilePath -> IO (Either String a)
+readJSON = fmap eitherDecode . BSL.readFile
+
+data CreatedWalletReadError =
+    JSONDecodeError String
+  | FileNotPresentError
+  | FileReadError IOError
+
+readGeneratedWallet :: FilePath -> IO (Either CreatedWalletReadError CreatedWallet)
+readGeneratedWallet fp = catch (first JSONDecodeError <$> readJSON fp) $ \e ->
+    if isDoesNotExistError e
+      then return $ Left FileNotPresentError
+      else return $ Left $ FileReadError e
 --------------------------------------------------------------------------------
 generateBackupPhrase :: IO (Mnemonic 12)
 generateBackupPhrase = entropyToMnemonic <$> genEntropy
@@ -82,14 +100,12 @@ getSyncState client = do
 --------------------------------------------------------------------------------
 -- | Creates a new wallet
 --
--- Returns 'SourceWalletConfig' for the 'FaucetEnv', the 'BackupPhrase' mnemonics
--- and the 'Address' of the created wallet. Before creating the wallet the
--- 'SyncState' of the node the 'WalletClient' is pointing at checked. If it's less
--- than 100% we wait 5 seconds and try again
+-- Before creating the wallet the 'SyncState' of the node the 'WalletClient' is
+-- pointing at checked. If it's less than 100% we wait 5 seconds and try again
 createWallet
     :: (HasLoggerName m, CanLog m, MonadIO m)
     => WalletClient m
-    -> m (Either InitFaucetError (SourceWalletConfig, Mnemonic 12, Address))
+    -> m (Either InitFaucetError CreatedWallet)
 createWallet client = do
     sync <- getSyncState client
     case sync of
@@ -136,7 +152,7 @@ createWallet client = do
                                         <> wIdLog
                                         <> " account index: " <> aIdxLog)
                           (accAddresses acc)
-              return (SourceWalletConfig wId aIdx Nothing, phrase, unV1 $ addrId address)
+              return (CreatedWallet wId phrase aIdx (unV1 $ addrId address))
         runClient err m = ExceptT $ (fmap (first err)) $ fmap (fmap wrData) m
 
 --------------------------------------------------------------------------------
@@ -180,17 +196,39 @@ makeInitializedWallet fc client = withSublogger "makeInitializedWallet" $ do
         Provided fp -> do
             srcCfg <- liftIO $ readSourceWalletConfig fp
             case srcCfg of
-                Left e -> return $ Left $ SourceWalletParseError e
+                Left err -> do
+                    logError ( "Error decoding source wallet in read-from: "
+                            <> (err ^. packed))
+                    return $ Left $ SourceWalletParseError err
                 Right wc -> do
                     let ps = cfgToPaymentSource wc
                     fmap (InitializedWallet wc) <$> readWalletBalance client ps
         Generate fp -> do
-            resp <- createWallet client
-            forM resp $ \(swc@(SourceWalletConfig wallet accIdx _), phrase, addr) -> do
-                    let iw = InitializedWallet swc 0
-                        createdWallet = CreatedWallet wallet phrase accIdx addr
-                    liftIO $ writeCreatedWalletInfo fp createdWallet
+            eGenWal <- liftIO $ readGeneratedWallet fp
+            resp <- case eGenWal of
+                Left (JSONDecodeError err) -> do
+                    logError ( "Error decoding existing generated wallet: "
+                            <> (err ^. packed))
+                    left $ CreatedWalletReadError err
+                Left (FileReadError e) -> do
+                    let err = show e
+                    logError ( "Error reading file for existing generated wallet: "
+                            <> (err ^. packed))
+                    left $ CreatedWalletReadError err
+                Left FileNotPresentError -> do
+                    logInfo "File specified in generate-to doesn't exist. Creating wallet"
+                    createdWallet <- createWallet client
+                    forM_ createdWallet $ \cw -> liftIO $ writeCreatedWalletInfo fp cw
+                    return createdWallet
+                Right cw -> do
+                    logInfo "Wallet read from file specified in generate-to."
+                    return $ Right cw
+            forM resp $ \(CreatedWallet wallet _phrase accIdx _addr) -> do
+                    let swc = SourceWalletConfig wallet accIdx Nothing
+                        iw = InitializedWallet swc 0
                     return iw
+    where
+        left = return . Left
 -- | Creates a 'FaucetEnv' from a given 'FaucetConfig'
 --
 -- Also sets the 'Gauge.Gauge' for the 'feWalletBalance'

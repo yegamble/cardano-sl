@@ -196,6 +196,13 @@ instance ToJSON CreatedWallet where
                , "address" .= addr
                ]
 
+instance FromJSON CreatedWallet where
+    parseJSON = withObject "CreatedWallet" $ \v -> do CreatedWallet
+      <$> v .: "wallet-id"
+      <*> v .: "recovery-words"
+      <*> v .: "account-index"
+      <*> v .: "address"
+
 --------------------------------------------------------------------------------
 -- | Sum type for possible errors encountered at faucet startup time
 data InitFaucetError =
@@ -205,6 +212,8 @@ data InitFaucetError =
   | CouldntReadSyncState ClientError
     -- | Error creating a new wallet
   | WalletCreationError ClientError
+    -- | Error reading a previously created wallet
+  | CreatedWalletReadError String
     -- | Error reading the balance of an existing wallet
   | CouldntReadBalance ClientError
     -- | Error thrown if created wallet doesn't have an account (shouldn't happen)
