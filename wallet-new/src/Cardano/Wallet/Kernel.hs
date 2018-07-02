@@ -9,9 +9,8 @@
 module Cardano.Wallet.Kernel (
     -- * Passive wallet
     PassiveWallet -- opaque
+  , DB -- opaque
   , WalletId
-  , accountUtxo
-  , accountTotalBalance
   , applyBlock
   , applyBlocks
   , bracketPassiveWallet
@@ -20,6 +19,11 @@ module Cardano.Wallet.Kernel (
   , walletLogMessage
   , walletPassive
   , wallets
+    -- * The only effectful getter you will ever need
+  , getWalletSnapshot
+    -- * Read-only, pure getters
+  , accountUtxo
+  , accountTotalBalance
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
@@ -300,24 +304,44 @@ cancelPending passiveWallet cancelled =
     update' (passiveWallet ^. wallets) $ CancelPending (fmap InDb cancelled)
 
 {-------------------------------------------------------------------------------
-  Wallet Account read-only API
+                              Wallet getters
+
+  The @only@ effectful function we expose is 'getWalletSnapshot', which reads
+  the full DB 'Snapshot' and returns it.
+  All the other getters are completely pure and take the 'Snapshot' as input,
+  so that users of the wallet are forced to re-use the same 'Snapshot' in case
+  they want to read the state of the wallet multiple times within the same
+  code block / handler.
+
 -------------------------------------------------------------------------------}
 
+-- | A type synonym to stress the fact that what we are carrying around is not
+-- a \"handle\" to the database but the snapshot of the data in the database
+-- at a given time.
+
+getWalletSnapshot :: PassiveWallet -> IO DB
+getWalletSnapshot pw = query' (pw ^. wallets) Snapshot
+
 walletQuery' :: forall e a. (Buildable e)
-             => PassiveWallet
+             => DB
              -> HdQueryErr e a
-             -> IO a
-walletQuery' pw qry= do
-    snapshot <- query' (pw ^. wallets) Snapshot
+             -> a
+walletQuery' snapshot qry= do
     let res = qry (snapshot ^. dbHdWallets)
-    either err return res
+    either err identity res
     where
         err = error . sformat build
 
-accountUtxo :: PassiveWallet -> HdAccountId -> IO Utxo
-accountUtxo pw accountId
-    = walletQuery' pw (Spec.queryAccountUtxo accountId)
+{-------------------------------------------------------------------------------
+  Pure getters on the 'DbSnapshot'.
+-------------------------------------------------------------------------------}
 
-accountTotalBalance :: PassiveWallet -> HdAccountId -> IO Coin
-accountTotalBalance pw accountId
-    = walletQuery' pw (Spec.queryAccountTotalBalance accountId)
+-- | Returns the Utxo for the input 'HdAccountId'.
+accountUtxo :: DB -> HdAccountId -> Utxo
+accountUtxo snapshot accountId
+    = walletQuery' snapshot (Spec.queryAccountUtxo accountId)
+
+-- | Returns the total balance for this 'HdAccountId'.
+accountTotalBalance :: DB -> HdAccountId -> Coin
+accountTotalBalance snapshot accountId
+    = walletQuery' snapshot (Spec.queryAccountTotalBalance accountId)

@@ -223,12 +223,12 @@ equivalentT activeWallet (pk,esk) = \mkWallet w ->
                )
             => Text
             -> (Wallet h Addr -> a)
-            -> (Kernel.PassiveWallet -> IO (Interpreted a))
+            -> (Kernel.DB -> Interpreted a)
             -> TranslateT (EquivalenceViolation h) m ()
         cmp fld f g = do
           let dsl = f inductiveCtxtWallet
           translated <- toCardano ctxt fld dsl
-          kernel     <- liftIO $ g passiveWallet
+          kernel     <- g <$> liftIO (Kernel.getWalletSnapshot passiveWallet)
 
           unless (translated == kernel) $
             throwError EquivalenceViolation {
