@@ -194,26 +194,31 @@ makeInitializedWallet
 makeInitializedWallet fc client = withSublogger "makeInitializedWallet" $ do
     case (fc ^. fcSourceWallet) of
         Provided fp -> do
+            logInfo ("Reading existing wallet details from " <> Text.pack fp)
             srcCfg <- liftIO $ readSourceWalletConfig fp
             case srcCfg of
                 Left err -> do
                     logError ( "Error decoding source wallet in read-from: "
-                            <> (err ^. packed))
+                            <> Text.pack err)
                     return $ Left $ SourceWalletParseError err
                 Right wc -> do
+                    logInfo "Successfully read wallet config"
                     let ps = cfgToPaymentSource wc
-                    fmap (InitializedWallet wc) <$> readWalletBalance client ps
+                    fmap (InitializedWallet wc) <$> do
+                        logInfo "Reading initial wallet balance"
+                        readWalletBalance client ps
         Generate fp -> do
+            logInfo ("Generating wallet details to " <> Text.pack fp <> " (or using existing)")
             eGenWal <- liftIO $ readGeneratedWallet fp
             resp <- case eGenWal of
                 Left (JSONDecodeError err) -> do
                     logError ( "Error decoding existing generated wallet: "
-                            <> (err ^. packed))
+                            <> Text.pack err)
                     left $ CreatedWalletReadError err
                 Left (FileReadError e) -> do
                     let err = show e
                     logError ( "Error reading file for existing generated wallet: "
-                            <> (err ^. packed))
+                            <> Text.pack err)
                     left $ CreatedWalletReadError err
                 Left FileNotPresentError -> do
                     logInfo "File specified in generate-to doesn't exist. Creating wallet"
@@ -239,19 +244,26 @@ initEnv fc store = withSublogger "init" $ do
       <$> createCounter "total-withdrawn" store
       <*> createCounter "num-withdrawals" store
       <*> pure walletBalanceGauge
+    logInfo "Creating Manager"
     manager <- liftIO $ createManager fc
     let url = BaseUrl Https (fc ^. fcWalletApiHost) (fc ^. fcWalletApiPort) ""
         client = mkHttpClient url manager
+    logInfo "Initializing wallet"
     initialWallet <- makeInitializedWallet fc (liftClient client)
     case initialWallet of
-        Left err -> throw err
+        Left err -> do
+            logError ( "Error initializing wallet. Exiting: "
+                    <> (show err ^. packed))
+            throw err
         Right iw -> do
-          liftIO $ Gauge.set walletBalanceGauge (iw ^. walletBalance)
-          return $ feConstruct
-                      store
-                      (iw ^. walletConfig)
-                      fc
-                      client
+            logInfo ( "Initialised wallet: "
+                   <> (iw ^. walletConfig . srcWalletId . to show . packed))
+            liftIO $ Gauge.set walletBalanceGauge (iw ^. walletBalance)
+            return $ feConstruct
+                        store
+                        (iw ^. walletConfig)
+                        fc
+                        client
 
 -- | Makes a http client 'Manager' for communicating with the wallet node
 createManager :: FaucetConfig -> IO Manager

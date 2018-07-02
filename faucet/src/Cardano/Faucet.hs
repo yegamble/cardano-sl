@@ -13,6 +13,7 @@ module Cardano.Faucet (
   ) where
 
 import           Control.Lens
+import Control.Monad (unless, forM_)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.ByteString.Lens (packedChars)
 import           Data.Monoid ((<>))
@@ -42,19 +43,22 @@ faucetServerAPI :: Proxy FaucetAPI
 faucetServerAPI = Proxy
 
 formWithdraw :: (MonadFaucet c m) => WithdrawlFormRequest -> m WithdrawlResult
-formWithdraw wfr = do
-    -- TODO: Get this from the config
-    let cr = CaptchaRequest "6LcnOGEUAAAAAIKNGv6KixvBufGdfWxOB1QQRqdJ" (wfr ^. gRecaptchaResponse)
-        wr = WithdrawlRequest (wfr ^. wfAddress)
-    captchaResp <- liftIO $ captchaRequest cr
-    logInfo ("Captcha: " <> (captchaResp ^. to show . packed))
-    if captchaResp ^. success
-       then withdraw wr
-       else throwError $ err500 { errBody = captchaResp ^. errorCodes . to show . packedChars }
+formWithdraw wfr = withSublogger (LoggerName "formWithdraw") $ do
+    mCaptchaSecret <- view (feFaucetConfig . fcRecaptchaSecret)
+    forM_ mCaptchaSecret $ \captchaSecret -> do
+        let cr = CaptchaRequest captchaSecret (wfr ^. gRecaptchaResponse)
+        logInfo "Found a secret for recaptcha in config, attempting validation"
+        captchaResp <- liftIO $ captchaRequest cr
+        logInfo ("Recaptcha result: " <> (captchaResp ^. to show . packed))
+        unless (captchaResp ^. success) $ do
+            throwError $ err500 { errBody = captchaResp ^. errorCodes . to show . packedChars }
+    let wr = WithdrawlRequest (wfr ^. wfAddress)
+    withdraw wr
 
 -- | Handler for the withdrawl of ADA from the faucet
 withdraw :: (MonadFaucet c m) => WithdrawlRequest -> m WithdrawlResult
 withdraw wr = withSublogger (LoggerName "withdraw") $ do
+    logInfo "Attempting to send ADA"
     resp <- Client.withdraw (wr ^. wAddress)
     case resp of
         Left err -> do

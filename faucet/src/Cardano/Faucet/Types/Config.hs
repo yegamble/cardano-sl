@@ -18,9 +18,8 @@ module Cardano.Faucet.Types.Config (
  , FaucetEnv(..)
  , HasFaucetEnv(..)
  , SourceWalletConfig(..)
- , srcSpendingPassword
  , cfgToPaymentSource
- , SourceWallet(..)
+ , SourceWallet(..), srcWalletId, srcAccountIndex, srcSpendingPassword
  , InitializedWallet(..), walletBalance, walletConfig
  , CreatedWallet(..)
  , InitFaucetError(..)
@@ -29,7 +28,8 @@ module Cardano.Faucet.Types.Config (
 import           Control.Applicative ((<|>))
 import           Control.Exception (Exception)
 import           Control.Lens hiding ((.=))
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject, (.:), (.:?), (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
+                             (.:), (.:?), (.=))
 import           Data.Int (Int64)
 import           Data.Text (Text)
 import           Data.Typeable (Typeable)
@@ -39,11 +39,13 @@ import           System.Metrics.Counter (Counter)
 import           System.Metrics.Gauge (Gauge)
 import           System.Remote.Monitoring.Statsd (StatsdOptions (..))
 
-import           Cardano.Wallet.API.V1.Types (AccountIndex, PaymentSource (..), WalletId (..))
+import           Cardano.Wallet.API.V1.Types (AccountIndex, PaymentSource (..),
+                                              WalletId (..))
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 import           Pos.Core (Address (..), Coin (..))
 import           Pos.Util.Mnemonic (Mnemonic)
 
+import           Cardano.Faucet.Types.Recaptcha
 
 --------------------------------------------------------------------------------
 -- | Newtype for 'StatsdOptions' for the 'FromJSON' instance
@@ -72,12 +74,9 @@ data SourceWalletConfig = SourceWalletConfig {
   , _srcAccountIndex     :: !AccountIndex
     -- | Optional spending password for the account ('Nothing' if no password)
   , _srcSpendingPassword :: !(Maybe Text)
-  } deriving (Generic, Show)
+  } deriving (Generic)
 
--- | 'Lens' to the spending password
-srcSpendingPassword :: Lens' SourceWalletConfig (Maybe Text)
-srcSpendingPassword f = \(SourceWalletConfig w a p) ->
-    SourceWalletConfig w a <$> f p
+makeLenses ''SourceWalletConfig
 
 instance FromJSON SourceWalletConfig where
     parseJSON = withObject "SourceWalletConfig" $ \v -> SourceWalletConfig
@@ -101,7 +100,7 @@ cfgToPaymentSource (SourceWalletConfig wId aIdx _) = PaymentSource wId aIdx
 --   'paymentMean' + randomFloat(-1, 1) * 'paymentScale'
 -- @
 data PaymentDistribution = PaymentDistribution {
-    _mean :: Coin
+    _mean  :: Coin
   , _scale :: Coin
   }
 
@@ -133,7 +132,7 @@ data InitializedWallet = InitializedWallet {
     _walletConfig  :: !SourceWalletConfig
     -- | The wallet's balance (0 if just created otherwise queried)
   , _walletBalance :: !Int64
-  } deriving (Show, Generic)
+  } deriving (Generic)
 
 makeLenses ''InitializedWallet
 
@@ -141,23 +140,25 @@ makeLenses ''InitializedWallet
 -- | Static config provided to the faucet
 data FaucetConfig = FaucetConfig {
     -- | Host the wallet API is running on
-    _fcWalletApiHost    :: !String
+    _fcWalletApiHost       :: !String
     -- | Port the wallet API is running on
-  , _fcWalletApiPort    :: !Int
+  , _fcWalletApiPort       :: !Int
     -- | Port to serve the faucet on
-  , _fcPort             :: !Int
+  , _fcPort                :: !Int
     -- | Distribution for withdrawls (default to 1000 and 500)
-  , _fcPaymentDistribution    :: !PaymentDistribution
+  , _fcPaymentDistribution :: !PaymentDistribution
     -- | Statsd server details
-  , _fcStatsdOpts       :: !FaucetStatsdOpts
+  , _fcStatsdOpts          :: !FaucetStatsdOpts
     -- | Config for wallet to use for funds
-  , _fcSourceWallet     :: !SourceWallet
+  , _fcSourceWallet        :: !SourceWallet
     -- | Logging config file
-  , _fcLoggerConfigFile :: !FilePath
+  , _fcLoggerConfigFile    :: !FilePath
     -- | TLS public certificate
-  , _fcPubCertFile      :: !FilePath
+  , _fcPubCertFile         :: !FilePath
     -- | TLS private key
-  , _fcPrivKeyFile      :: !FilePath
+  , _fcPrivKeyFile         :: !FilePath
+    -- | Recapctch sectret key. Absence indicates not to use recaptcha
+  , _fcRecaptchaSecret     :: !(Maybe CaptchaSecret)
   }
 
 makeClassy ''FaucetConfig
@@ -174,6 +175,7 @@ instance FromJSON FaucetConfig where
           <*> v .: "logging-config"
           <*> v .: "public-certificate"
           <*> v .: "private-key"
+          <*> (fmap CaptchaSecret <$> v .:? "recaptcha-secret")
 
 --------------------------------------------------------------------------------
 -- | Details of a wallet created by the faucet at run time if 'Generate' is used
