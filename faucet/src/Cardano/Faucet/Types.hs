@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.Faucet.Types (
-    M, runM, liftToM
+    M, runM
   , MonadFaucet
   , module Cardano.Faucet.Types.Config
   , module Cardano.Faucet.Types.API
@@ -20,9 +20,8 @@ module Cardano.Faucet.Types (
 
 import           Control.Lens
 import           Control.Monad.Except
-import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader
-import           Servant (Handler (..), ServantErr)
+import           Servant (ServantErr)
 import           System.Wlog (CanLog, HasLoggerName, LoggerName (..),
                               LoggerNameBox (..), WithLogger, launchFromFile)
 
@@ -44,7 +43,5 @@ runM c = launchFromFile (c ^. feFaucetConfig . fcLoggerConfigFile) (LoggerName "
        . flip runReaderT c
        . unM
 
-liftToM :: Handler a -> M a
-liftToM = M . lift . hoist lift . runHandler'
-
-type MonadFaucet c m = (MonadIO m, MonadReader c m, HasFaucetEnv c, WithLogger m, HasLoggerName m, MonadError ServantErr m)
+type MonadFaucet c m = ( MonadIO m, MonadReader c m, HasFaucetEnv c, WithLogger m
+                       , HasLoggerName m, MonadError ServantErr m)
