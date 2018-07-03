@@ -21,6 +21,7 @@ import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
+import           System.Wlog (CanLog, HasLoggerName)
 
 import           Pos.Core (HasCoreConfiguration, HasGenesisData, ProtocolMagic,
                      epochIndexL)
@@ -28,16 +29,17 @@ import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
-import           Pos.DB.Class (gsAdoptedBVData)
+import           Pos.DB.Class (MonadGState, MonadDBRead, gsAdoptedBVData)
 import qualified Pos.DB.GState.Stakes as DB
 import           Pos.Exception (assertionFailed)
 import           Pos.Txp.Base (flattenTxPayload)
-import           Pos.Txp.Configuration (TxpConfiguration (..), txpConfiguration)
+import           Pos.Txp.Configuration (HasTxpConfiguration,
+                     TxpConfiguration (..), txpConfiguration)
 import qualified Pos.Txp.DB as DB
 import           Pos.Txp.Logic.Common (buildUtxo, buildUtxoForRollback)
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpCommonMode,
-                     TxpGlobalApplyMode, TxpGlobalRollbackMode,
-                     TxpGlobalSettings (..), TxpGlobalVerifyMode)
+                     TxpGlobalRollbackMode, TxpGlobalSettings (..),
+                     TxpGlobalVerifyMode)
 import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..),
                      GlobalToilM, GlobalToilState (..), StakesView (..),
                      ToilVerFailure, Utxo, UtxoM, UtxoModifier, applyToil,
@@ -162,8 +164,10 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 ----------------------------------------------------------------------------
 
 applyBlocksWith ::
-       forall extraEnv extraState ctx m.
-       (TxpGlobalApplyMode ctx m, Default extraState)
+       forall extraEnv extraState m.
+       ( CanLog m, Default extraState, HasLoggerName m, HasTxpConfiguration
+       , MonadDBRead m, MonadGState m
+       )
     => ProtocolMagic
     -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
