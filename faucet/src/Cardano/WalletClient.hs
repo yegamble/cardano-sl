@@ -1,8 +1,8 @@
 {-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ViewPatterns        #-}
 {-# OPTIONS_GHC -Wall #-}
 module Cardano.WalletClient (
     withdraw
@@ -10,10 +10,11 @@ module Cardano.WalletClient (
 
 import           Cardano.Wallet.API.V1.Types (Payment (..), V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.Client (Resp, Transaction, WalletClient (..), liftClient)
+import           Cardano.Wallet.Client (Resp, Transaction, WalletClient (..),
+                                        liftClient)
 import           Control.Lens
 import           Control.Monad.IO.Class (liftIO)
-import Control.Monad.Reader
+import           Control.Monad.Reader
 import           Crypto.Hash (Blake2b_256, Digest)
 import qualified Crypto.Hash as CryptoHash
 import qualified Data.ByteArray as BA
