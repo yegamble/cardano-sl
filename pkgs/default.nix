@@ -16596,11 +16596,14 @@ license = stdenv.lib.licenses.mit;
 ({
   mkDerivation
 , aeson
+, aeson-pretty
 , base
 , base16-bytestring
 , bytestring
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-update
+, cardano-sl-util
 , cardano-sl-wallet
 , cardano-sl-wallet-new
 , connection
@@ -16612,6 +16615,7 @@ license = stdenv.lib.licenses.mit;
 , ekg-statsd
 , exceptions
 , filepath
+, http-api-data
 , http-client
 , http-client-tls
 , lens
@@ -16619,6 +16623,7 @@ license = stdenv.lib.licenses.mit;
 , memory
 , mmorph
 , mtl
+, neat-interpolation
 , optparse-applicative
 , QuickCheck
 , random
@@ -16631,13 +16636,16 @@ license = stdenv.lib.licenses.mit;
 , servant-swagger-ui
 , stdenv
 , swagger2
+, tagged
 , text
 , text-format
+, time
 , tls
 , wai
 , wai-cors
 , wai-extra
 , warp
+, wreq
 }:
 mkDerivation {
 
@@ -16648,11 +16656,14 @@ isLibrary = true;
 isExecutable = true;
 libraryHaskellDepends = [
 aeson
+aeson-pretty
 base
 base16-bytestring
 bytestring
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-update
+cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new
 connection
@@ -16663,6 +16674,7 @@ ekg-core
 ekg-statsd
 exceptions
 filepath
+http-api-data
 http-client
 http-client-tls
 lens
@@ -16670,6 +16682,7 @@ log-warper
 memory
 mmorph
 mtl
+neat-interpolation
 QuickCheck
 random
 serokell-util
@@ -16680,15 +16693,20 @@ servant-server
 servant-swagger
 servant-swagger-ui
 swagger2
+tagged
 text
 text-format
+time
 tls
+wreq
 ];
 executableHaskellDepends = [
 aeson
 base
 bytestring
 cardano-sl-core
+cardano-sl-update
+cardano-sl-util
 cardano-sl-wallet
 cardano-sl-wallet-new
 ekg
