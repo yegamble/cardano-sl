@@ -10,8 +10,9 @@ module Cardano.WalletClient (
 
 import           Cardano.Wallet.API.V1.Types (Payment (..), V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.Client (Resp, Transaction, WalletClient (..),
-                                        liftClient)
+import           Cardano.Wallet.Client (Resp, Transaction, WalletClient (..))
+import           Control.Concurrent.MVar (MVar, putMVar, takeMVar)
+import           Control.Exception (bracket)
 import           Control.Lens
 import           Control.Monad.IO.Class (liftIO)
 import           Control.Monad.Reader
@@ -42,11 +43,16 @@ withdraw addr = do
     paymentSource <- view (feSourceWallet . to cfgToPaymentSource)
     spendingPassword <- view (feSourceWallet . srcSpendingPassword)
     coin <- randomAmount =<< view (feFaucetConfig . fcPaymentDistribution)
-    client <- liftClient <$> view feWalletClient
+    client <- view feWalletClient
+    lock <- view feWithdrawlLock
     let paymentDist = (V1.PaymentDistribution addr coin :| [])
         sp =  spendingPassword <&> view (re utf8 . to hashPwd . to V1)
         payment = Payment paymentSource paymentDist Nothing sp
-    postTransaction client payment
+    liftIO $ runWithDraw client lock payment
+
+runWithDraw :: WalletClient IO -> MVar () -> Payment -> Resp IO Transaction
+runWithDraw wc mVar pmt =
+    bracket (takeMVar mVar) (putMVar mVar) $ const $ postTransaction wc pmt
 
 -- | Hashes bytestring password to the form expected by the wallet API
 hashPwd :: ByteString -> PassPhrase

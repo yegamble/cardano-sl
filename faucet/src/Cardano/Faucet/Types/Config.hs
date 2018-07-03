@@ -26,6 +26,7 @@ module Cardano.Faucet.Types.Config (
   ) where
 
 import           Control.Applicative ((<|>))
+import Control.Concurrent.MVar (MVar)
 import           Control.Exception (Exception)
 import           Control.Lens hiding ((.=))
 import           Data.Aeson (FromJSON (..), ToJSON (..), object, withObject,
@@ -243,6 +244,8 @@ data FaucetEnv = FaucetEnv {
   , _feFaucetConfig  :: !FaucetConfig
     -- | Client for communicating with wallet API
   , _feWalletClient  :: !(WalletClient IO)
+    -- | Lock to ensure only one withdrawl at a time
+  , _feWithdrawlLock :: !(MVar ())
   }
 
 makeClassy ''FaucetEnv

@@ -15,6 +15,7 @@
 module Cardano.Faucet.Init (initEnv) where
 
 import           Control.Concurrent (threadDelay)
+import           Control.Concurrent.MVar (newMVar)
 import           Control.Exception (catch, throw)
 import           Control.Lens hiding ((.=))
 import           Control.Monad.Except
@@ -250,6 +251,7 @@ initEnv fc store = withSublogger "init" $ do
         client = mkHttpClient url manager
     logInfo "Initializing wallet"
     initialWallet <- makeInitializedWallet fc (liftClient client)
+    lock <- liftIO $ newMVar ()
     case initialWallet of
         Left err -> do
             logError ( "Error initializing wallet. Exiting: "
@@ -264,6 +266,7 @@ initEnv fc store = withSublogger "init" $ do
                         (iw ^. walletConfig)
                         fc
                         client
+                        lock
 
 -- | Makes a http client 'Manager' for communicating with the wallet node
 createManager :: FaucetConfig -> IO Manager
