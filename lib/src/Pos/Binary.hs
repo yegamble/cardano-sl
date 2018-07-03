@@ -8,5 +8,4 @@ module Pos.Binary
 import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Delegation ()
-import           Pos.Binary.Txp ()
 import           Pos.Binary.Update ()

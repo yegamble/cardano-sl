@@ -73,9 +73,9 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (ProxyCert (..), ProxySecretKey (..),
                      SecretProof (..))
+import           Pos.Infra.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..),
                      MCShares (..), MCVssCertificate (..))
-import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Crypto.Limits (mlAbstractHash, mlDecShare, mlEncShare,

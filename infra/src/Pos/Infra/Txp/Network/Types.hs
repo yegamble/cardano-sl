@@ -1,12 +1,11 @@
--- | Types used for communication about transactions.
-
-module Pos.Txp.Network.Types
+module Pos.Infra.Txp.Network.Types
        ( TxMsgContents (..)
        ) where
 
-import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, (%))
 import           Universum
+
+import           Data.Text.Buildable (Buildable (..))
+import           Formatting (bprint, (%))
 
 import           Pos.Core.Txp (TxAux (..), txaF)
 

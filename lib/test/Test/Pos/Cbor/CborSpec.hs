@@ -34,7 +34,7 @@ import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg,
                      mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..), TxMsgContents (..))
 import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Infra.Slotting.Types (SlottingData)
 import qualified Pos.Ssc as Ssc
@@ -148,17 +148,17 @@ spec = withDefConfiguration $ \_ -> do
                     binaryTest @(SmallGenerator T.TxPayload)
                     binaryTest @T.TxpUndo
                 describe "Network" $ do
-                    binaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
-                    binaryTest @(R.MempoolMsg T.TxMsgContents)
-                    binaryTest @(R.DataMsg T.TxMsgContents)
+                    binaryTest @(R.InvMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.ReqMsg (Tagged TxMsgContents T.TxId))
+                    binaryTest @(R.MempoolMsg TxMsgContents)
+                    binaryTest @(R.DataMsg TxMsgContents)
             describe "Bi extension" $ do
                 prop "TxInWitness" (extensionProperty @T.TxInWitness)
             describe "Message length limit" $ do
-                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId)) mlInvMsg
-                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId)) mlReqMsg
-                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents) mlMempoolMsg
-                -- No check for (DataMsg T.TxMsgContents) since overal message size
+                msgLenLimitedTest @(R.InvMsg (Tagged TxMsgContents T.TxId)) mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged TxMsgContents T.TxId)) mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg TxMsgContents) mlMempoolMsg
+                -- No check for (DataMsg TxMsgContents) since overal message size
                 -- is forcely limited
         describe "Update system" $ do
             describe "Bi instances" $ do

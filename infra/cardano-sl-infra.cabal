@@ -104,6 +104,9 @@ library
                         -- NTP
                         Pos.Infra.Ntp.Configuration
 
+                        -- Txp
+                        Pos.Infra.Txp.Network.Types
+
                         -- Pos.Infra.Binary
                         Pos.Infra.Binary
                         Pos.Infra.Binary.DHTModel

@@ -17,9 +17,9 @@ import           Pos.Infra.Communication.Types.Protocol (MsgSubscribe,
                      MsgSubscribe1)
 import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg,
                      InvOrData, MempoolMsg, ReqMsg, ReqOrRes)
+import           Pos.Infra.Txp.Network.Types (TxMsgContents)
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares,
                      MCVssCertificate)
-import           Pos.Txp.Network.Types (TxMsgContents)
 
 -- Why?
 instance Message Void where

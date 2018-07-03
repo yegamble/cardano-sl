@@ -12,7 +12,6 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Universum
 
 import           Pos.Binary.Communication ()
-import           Pos.Binary.Txp ()
 import           Pos.Communication.Limits (mlTxMsgContents)
 import           Pos.Communication.Message ()
 import           Pos.Core.Txp (TxAux (..), TxId)
@@ -23,9 +22,9 @@ import           Pos.Infra.Communication.Relay (InvReqDataParams (..),
                      MempoolParams (..), Relay (..), invReqDataFlowTK,
                      invReqMsgType, relayListeners, relayPropagateOut, resOk)
 import           Pos.Infra.Network.Types (Bucket)
+import           Pos.Infra.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.Trace (Severity, Trace)
 
 -- | Send Tx to given addresses.

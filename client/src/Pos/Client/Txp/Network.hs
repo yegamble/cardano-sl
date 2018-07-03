@@ -34,7 +34,7 @@ import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash,
 import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
-import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Infra.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.WorkMode.Class (MinWorkMode)
 

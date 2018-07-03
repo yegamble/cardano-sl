@@ -22,6 +22,7 @@ import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, (%))
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Infra.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.Util (cborError)
 
 -- | Inventory message. Can be used to announce the fact that you have
@@ -64,6 +65,10 @@ instance Typeable tag => Bi (MempoolMsg tag) where
 data DataMsg contents = DataMsg
     { dmContents :: !contents
     } deriving (Generic, Show, Eq)
+
+instance Bi (DataMsg TxMsgContents) where
+    encode (DataMsg (TxMsgContents txAux)) = encode txAux
+    decode = DataMsg <$> (TxMsgContents <$> decode)
 
 type InvOrData key contents = Either (InvMsg key) (DataMsg contents)
 
