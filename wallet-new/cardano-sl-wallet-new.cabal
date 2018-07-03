@@ -104,7 +104,7 @@ library
   other-modules:       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
-                       Cardano.Wallet.WalletLayer.Transactions
+                       Cardano.Wallet.WalletLayer.Concrete
                        Cardano.Wallet.WalletLayer.QuickCheck
                        Cardano.Wallet.WalletLayer.Error
                        Paths_cardano_sl_wallet_new

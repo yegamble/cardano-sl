@@ -22,4 +22,5 @@ openMetaDB fp = do
         , getTxMeta     = ConcreteStorage.getTxMeta conn
         , putTxMeta     = ConcreteStorage.putTxMeta conn
         , getTxMetas    = ConcreteStorage.getTxMetas conn
+        , getTxMetasByAccounts = ConcreteStorage.getTxMetasByAccounts conn
         }

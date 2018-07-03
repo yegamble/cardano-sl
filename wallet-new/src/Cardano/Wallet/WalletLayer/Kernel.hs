@@ -15,9 +15,7 @@ import           Pos.Block.Types (Blund, Undo (..))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import qualified Cardano.Wallet.WalletLayer.Transactions as Transactions
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 import           Pos.Core.Chrono (OldestFirst (..))
@@ -26,6 +24,7 @@ import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
 import           Pos.Util.BackupPhrase
 import           Pos.Crypto.Signing
+import qualified Cardano.Wallet.WalletLayer.Concrete as Concrete
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -35,8 +34,6 @@ bracketPassiveWallet
     -> (PassiveWalletLayer n -> m a) -> m a
 bracketPassiveWallet logFunction f =
     Kernel.bracketPassiveWallet logFunction $ \w -> do
-      handle@MetaDBHandle{..} <- liftIO $ openMetaDB ":memory:"
-      liftIO $ migrateMetaDB
       -- Create the wallet worker and its communication endpoint `invoke`.
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
                { Actions.applyBlocks  =  \blunds ->
@@ -58,35 +55,13 @@ bracketPassiveWallet logFunction f =
 
         Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel (pk, esk) Map.empty
 
-      f (passiveWalletLayer w invoke handle)
+      f (Concrete.mkPassiveWalletLayer w invoke)
 
   where
     -- TODO consider defaults
     walletName       = HD.WalletName "(new wallet)"
     spendingPassword = HD.NoSpendingPassword
     assuranceLevel   = HD.AssuranceLevelNormal
-
-    -- | TODO(ks): Currently not implemented!
-    passiveWalletLayer _wallet invoke handle =
-        PassiveWalletLayer
-            { _pwlCreateWallet   = error "Not implemented!"
-            , _pwlGetWalletIds   = error "Not implemented!"
-            , _pwlGetWallet      = error "Not implemented!"
-            , _pwlUpdateWallet   = error "Not implemented!"
-            , _pwlDeleteWallet   = error "Not implemented!"
-
-            , _pwlCreateAccount  = error "Not implemented!"
-            , _pwlGetAccounts    = error "Not implemented!"
-            , _pwlGetAccount     = error "Not implemented!"
-            , _pwlUpdateAccount  = error "Not implemented!"
-            , _pwlDeleteAccount  = error "Not implemented!"
-
-            , _pwlGetAddresses   = error "Not implemented!"
-            , _pwlGetTransactions = Tranactions.getTransactions handle
-
-            , _pwlApplyBlocks    = invoke . Actions.ApplyBlocks
-            , _pwlRollbackBlocks = invoke . Actions.RollbackBlocks
-            }
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
     -- by the invariants established in the 'Blund'.

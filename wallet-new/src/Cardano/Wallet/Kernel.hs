@@ -20,10 +20,12 @@ module Cardano.Wallet.Kernel (
   , walletLogMessage
   , walletPassive
   , wallets
+  , walletMeta
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
   , newPending
+  , accountTxInfo
   ) where
 
 import           Universum hiding (State, init)
@@ -37,7 +39,7 @@ import           Formatting (sformat, build)
 
 import           System.Wlog (Severity (..))
 
-import           Data.Acid (AcidState)
+import           Data.Acid (AcidState, closeAcidState)
 import           Data.Acid.Memory (openMemoryState)
 import           Data.Acid.Advanced (query', update')
 
@@ -60,13 +62,14 @@ import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
 import           Cardano.Wallet.Kernel.DB.HdWallet.Read (HdQueryErr)
 import           Cardano.Wallet.Kernel.DB.InDb
 import qualified Cardano.Wallet.Kernel.DB.Spec.Read as Spec
+import           Cardano.Wallet.Kernel.DB.TxMeta
 
-
-import           Pos.Core (Timestamp (..), TxAux (..), AddressHash, Coin)
+import           Pos.Core (Timestamp (..), TxAux (..), AddressHash, Coin, TxId, SlotId)
 
 import           Pos.Crypto (EncryptedSecretKey, PublicKey)
 import           Pos.Txp (Utxo)
 import           Pos.Core.Chrono (OldestFirst)
+
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -82,9 +85,15 @@ data PassiveWallet = PassiveWallet {
       _walletLogMessage :: Severity -> Text -> IO () -- ^ Logger
     , _walletESKs       :: MVar WalletESKs           -- ^ ESKs indexed by WalletId
     , _wallets          :: AcidState DB              -- ^ Database handle
+    , _walletMeta       :: MetaDBHandle              -- ^ MetaData handle
     }
 
 makeLenses ''PassiveWallet
+
+data Handles = Handles {
+    hAcid :: AcidState DB,
+    hMeta :: MetaDBHandle
+}
 
 {-------------------------------------------------------------------------------
   Passive Wallet Resource Management
@@ -98,13 +107,25 @@ bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      => (Severity -> Text -> IO ())
                      -> (PassiveWallet -> m a) -> m a
 bracketPassiveWallet _walletLogMessage f =
-    bracket (liftIO $ openMemoryState defDB)
-            (\_ -> return ())
-            (\db ->
+    bracket (liftIO $ handlesOpen)
+            (liftIO . handlesClose)
+            (\ handles ->
                 bracket
-                  (liftIO $ initPassiveWallet _walletLogMessage db)
+                  (liftIO $ initPassiveWallet _walletLogMessage handles)
                   (\_ -> return ())
                   f)
+
+handlesOpen :: IO Handles
+handlesOpen = do
+    db <- openMemoryState defDB
+    metadb <- openMetaDB ":memory:"
+    migrateMetaDB metadb
+    return $ Handles db metadb
+
+handlesClose :: Handles -> IO ()
+handlesClose (Handles acid meta) = do
+    closeAcidState acid
+    closeMetaDB meta
 
 {-------------------------------------------------------------------------------
   Manage the WalletESKs Map
@@ -125,11 +146,11 @@ withWalletESKs pw = withMVar (pw ^. walletESKs)
 
 -- | Initialise Passive Wallet with empty Wallets collection
 initPassiveWallet :: (Severity -> Text -> IO ())
-                  -> AcidState DB
+                  -> Handles
                   -> IO PassiveWallet
-initPassiveWallet logMessage db = do
+initPassiveWallet logMessage Handles{..} = do
     esks <- Universum.newMVar Map.empty
-    return $ PassiveWallet logMessage esks db
+    return $ PassiveWallet logMessage esks hAcid hMeta
 
 -- | Initialize the Passive wallet (specified by the ESK) with the given Utxo
 --
@@ -273,3 +294,7 @@ accountUtxo pw accountId
 accountTotalBalance :: PassiveWallet -> HdAccountId -> IO Coin
 accountTotalBalance pw accountId
     = walletQuery' pw (Spec.queryAccountTotalBalance accountId)
+
+accountTxInfo :: PassiveWallet -> HdAccountId -> TxId -> IO (Maybe SlotId, Bool)
+accountTxInfo pw accountId txId
+    = walletQuery' pw (Spec.queryTxInfo txId accountId)

@@ -3,6 +3,7 @@ module Cardano.Wallet.Kernel.DB.Spec.Read (
     -- * Queries
     queryAccountTotalBalance
   , queryAccountUtxo
+  , queryTxInfo
   ) where
 
 import           Universum
@@ -21,6 +22,7 @@ import           Cardano.Wallet.Kernel.DB.Spec.Util
 
 import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
+import           Cardano.Wallet.Kernel.DB.BlockMeta
 
 {-------------------------------------------------------------------------------
   An address is considered "ours" if it belongs to the set of "our" addresses.
@@ -89,6 +91,16 @@ accountTotalBalance addrs c
         availableBalance = accountAvailableBalance c
         changeBalance    = balance (accountChange ourUtxo' c)
 
+txSlot :: Core.TxId -> Checkpoint -> (Maybe Core.SlotId)
+txSlot txId checkpoint = Map.lookup txId slots
+  where
+    slots = view (checkpointBlockMeta . blockMetaSlotId . fromDb) checkpoint
+
+isTxPending :: Core.TxId -> Checkpoint -> Bool
+isTxPending txId checkpoint = Map.member txId pendingTxs
+  where
+    pendingTxs = view (checkpointPending . pendingTransactions . fromDb) checkpoint
+
 {-------------------------------------------------------------------------------
   Public queries on an account, as defined in the Wallet Spec
 -------------------------------------------------------------------------------}
@@ -103,5 +115,11 @@ queryAccountTotalBalance accountId db
 queryAccountUtxo :: HdAccountId -> HD.HdQueryErr UnknownHdAccount Utxo
 queryAccountUtxo accountId db
     = accountUtxo <$> checkpoint
+    where
+        checkpoint = HD.readHdAccountCurrentCheckpoint accountId db
+
+queryTxInfo :: Core.TxId -> HdAccountId -> HD.HdQueryErr UnknownHdAccount (Maybe Core.SlotId, Bool)
+queryTxInfo txId accountId db
+    = (\ch -> (txSlot txId ch, isTxPending txId ch)) <$> checkpoint
     where
         checkpoint = HD.readHdAccountCurrentCheckpoint accountId db

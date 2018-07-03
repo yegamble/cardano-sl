@@ -14,6 +14,7 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     -- * Basic API
     , putTxMeta
     , getTxMeta
+    , getTxMetasByAccounts
     , getTxMetas
 
     -- * Unsafe functions
@@ -24,10 +25,10 @@ import qualified Prelude
 import           Universum
 
 import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..),
-                                            IsSql92DataTypeSyntax, varCharType)
+                                            IsSql92DataTypeSyntax, varCharType, valueE)
 import           Database.Beam.Backend.SQL.SQL92 (Sql92OrderingExpressionSyntax,
                                                   Sql92SelectOrderingSyntax)
-import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
+import           Database.Beam.Query (HasSqlEqualityCheck, (==.), (||.))
 import qualified Database.Beam.Query as SQL
 import qualified Database.Beam.Query.Internal as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings, PrimaryKey, Table)
@@ -75,9 +76,9 @@ instance Database Sqlite MetaDB
 ** Primary Index: ~tx_meta_id~
 ** Secondary Indexes (for now): ~tx_meta_created_at~
 
-| tx_meta_id | tx_meta_amount | tx_meta_created_at | tx_meta_is_local | tx_meta_is_outgoing |
-|------------+----------------+--------------------+------------------+---------------------|
-| Core.TxId  | Core.Coin      | Core.Timestamp     | Bool             | Bool                |
+| tx_meta_id | tx_meta_amount | tx_meta_created_at | tx_meta_is_local | tx_meta_is_outgoing | tx_meta_account
+|------------+----------------+--------------------+------------------+---------------------|-----------------
+| Core.TxId  | Core.Coin      | Core.Timestamp     | Bool             | Bool                | Word32
 
 --}
 data TxMetaT f = TxMeta {
@@ -86,6 +87,7 @@ data TxMetaT f = TxMeta {
     , _txMetaTableCreatedAt  :: Beam.Columnar f Core.Timestamp
     , _txMetaTableIsLocal    :: Beam.Columnar f Bool
     , _txMetaTableIsOutgoing :: Beam.Columnar f Bool
+    , _txMetaTableAccountId  :: Beam.Columnar f Kernel.AccountId
     } deriving Generic
 
 type TxMeta = TxMetaT Identity
@@ -101,6 +103,7 @@ mkTxMeta txMeta = TxMeta {
                 , _txMetaTableCreatedAt  = txMeta ^. Kernel.txMetaCreationAt
                 , _txMetaTableIsLocal    = txMeta ^. Kernel.txMetaIsLocal
                 , _txMetaTableIsOutgoing = txMeta ^. Kernel.txMetaIsOutgoing
+                , _txMetaTableAccountId  = txMeta ^. Kernel.txMetaAccountId
                 }
 
 instance Beamable TxMetaT
@@ -274,6 +277,9 @@ txId = DataType (varCharType Nothing Nothing)
 coin :: DataType SqliteDataTypeSyntax Core.Coin
 coin = DataType sqliteBigIntType
 
+accountid :: DataType SqliteDataTypeSyntax Kernel.AccountId
+accountid = DataType sqliteBigIntType
+
 -- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
 initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
 initialMigration () = do
@@ -282,7 +288,8 @@ initialMigration () = do
                          (field "meta_amount" coin notNull)
                          (field "meta_created_at" timestamp notNull)
                          (field "meta_is_local" boolean notNull)
-                         (field "meta_is_outgoing" boolean notNull))
+                         (field "meta_is_outgoing" boolean notNull)
+                         (field "meta_account_id" accountid  notNull))
            <*> createTable "tx_metas_inputs"
                  (TxInput (TxCoinDistributionTable (field "input_address" address notNull)
                                                    (field "input_coin" coin notNull)
@@ -390,6 +397,7 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
     , _txMetaCreationAt = _txMetaTableCreatedAt txMeta
     , _txMetaIsLocal    = _txMetaTableIsLocal txMeta
     , _txMetaIsOutgoing = _txMetaTableIsOutgoing txMeta
+    , _txMetaAccountId  = _txMetaTableAccountId txMeta
     }
     where
         -- | Reifies the input 'TxCoinDistributionTableT' into a tuple suitable
@@ -435,7 +443,25 @@ getTxMetas :: Sqlite.Connection
            -> Limit
            -> Maybe Sorting
            -> IO [Kernel.TxMeta]
-getTxMetas conn (Offset offset) (Limit limit) mbSorting = do
+getTxMetas conn = getTxMetasAux conn Nothing
+
+
+getTxMetasByAccounts :: Sqlite.Connection
+                     -> [Kernel.AccountId]
+                     -> Offset
+                     -> Limit
+                     -> Maybe Sorting
+                     -> IO [Kernel.TxMeta]
+getTxMetasByAccounts conn accountIds = getTxMetasAux conn (Just accountIds)
+
+
+getTxMetasAux :: Sqlite.Connection
+                        -> Maybe [Kernel.AccountId]
+                        -> Offset
+                        -> Limit
+                        -> Maybe Sorting
+                        -> IO [Kernel.TxMeta]
+getTxMetasAux conn mbAccountIds (Offset offset) (Limit limit) mbSorting = do
     res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
         metasWithInputs  <- nonEmpty <$> SQL.runSelectReturningList paginatedInputs
         metasWithOutputs <- nonEmpty <$> SQL.runSelectReturningList paginatedOutputs
@@ -467,6 +493,7 @@ getTxMetas conn (Offset offset) (Limit limit) mbSorting = do
             Just (Sorting SortByAmount     dir) ->
                 SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableAmount) $ SQL.all_ (_mDbMeta metaDB)
 
+
         -- The following two queries are disjointed and both fetches, respectively,
         -- a list of tuples of type @(TxMeta, TxInput)@ and @(TxMeta, TxOutput)@.
         -- The rationale behind doing two separate queries is that there is no elegant
@@ -476,13 +503,29 @@ getTxMetas conn (Offset offset) (Limit limit) mbSorting = do
         -- duplicate filtering on the Haskell side.
         paginatedInputs = SQL.select $ do
             meta   <- SQL.limit_ limit (SQL.offset_ offset metaQuery)
+            SQL.guard_ $ mkExpr meta
             inputs  <- SQL.oneToMany_ (_mDbInputs metaDB)  (getTx _getTxInput) meta
             pure (meta, inputs)
 
         paginatedOutputs = SQL.select $ do
             meta   <- SQL.limit_ limit (SQL.offset_ offset metaQuery)
+            SQL.guard_ $ mkExpr meta
             outputs <- SQL.oneToMany_ (_mDbOutputs metaDB) (getTx _getTxOutput) meta
             pure (meta, outputs)
+
+        mkExpr meta = case mbAccountIds of
+            Nothing         -> SQL.val_ True
+            Just accountIds -> inE expressions
+              where
+                expressions = map (\acc -> (_txMetaTableAccountId meta) ==. SQL.val_ acc) accountIds
+
+        inE es =
+          let tr = (SQL.QExpr (pure (valueE (sqlValueSyntax True))))
+          in
+              fromMaybe tr $
+                 foldl (\expr x ->
+                          Just $ maybe x (\e -> e ||. x) expr)
+                       Nothing es
 
         -- | Groups the inputs or the outputs under the same 'TxMeta'.
         transform :: NonEmpty (TxMeta, a) -> M.Map OrdByCreationDate (NonEmpty a)
@@ -502,6 +545,15 @@ getTxMetas conn (Offset offset) (Limit limit) mbSorting = do
             case M.lookup (OrdByCreationDate t) inputMap of
                  Nothing     -> acc
                  Just inputs -> toTxMeta t inputs outputs : acc
+
+{-}
+-- | Combine all the given boolean value 'QGenExpr's with the '||.' operator.
+-- Like https://github.com/tathougies/beam/blob/21b3c6430adb3c22338cf81746872de22cda90e9/beam-core/Database/Beam/Query/Combinators.hs#L435
+-- but for ||. instead of &&.
+-- TODO: Is this efficient? Why it`s no in beam?
+inE :: ( IsSql92ExpressionSyntax syntax, HasSqlValueSyntax (Sql92ExpressionValueSyntax syntax) Bool) =>
+       [ QGenExpr context syntax s Bool ] -> QGenExpr context syntax s Bool
+-}
 
 -- | Generates a Beam's AST fragment for use within a SQL query, to order
 -- the results of a @SELECT@.
@@ -523,4 +575,3 @@ toOrdering (Sorting criteria dir) =
             SortByAmount ->
                 \t1 t2 -> (comparator dir) (t1 ^. Kernel.txMetaAmount)
                                            (t2 ^. Kernel.txMetaAmount)
-

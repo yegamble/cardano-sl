@@ -1,7 +1,8 @@
 -- | Transaction metadata conform the wallet specification
 module Cardano.Wallet.Kernel.DB.TxMeta.Types (
+    AccountId
     -- * Transaction metadata
-    TxMeta(..)
+  , TxMeta(..)
     -- ** Lenses
   , txMetaId
   , txMetaAmount
@@ -10,6 +11,7 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   , txMetaCreationAt
   , txMetaIsLocal
   , txMetaIsOutgoing
+  , txMetaAccountId
 
   -- * Transaction storage
   , MetaDBHandle (..)
@@ -87,6 +89,9 @@ data TxMeta = TxMeta {
       --
       -- A transaction is outgoing when it decreases the wallet's balance.
     , _txMetaIsOutgoing :: Bool
+
+      -- The account that added this Tx.
+    , _txMetaAccountId :: Word32
     }
 
 makeLenses ''TxMeta
@@ -103,6 +108,7 @@ exactlyEqualTo t1 t2 =
         , t1 ^. txMetaCreationAt == t2 ^. txMetaCreationAt
         , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
+        , t1 ^. txMetaAccountId == t2 ^. txMetaAccountId
         ]
 
 -- | Lenient equality for two 'TxMeta': two 'TxMeta' are equal if they have
@@ -118,8 +124,10 @@ isomorphicTo t1 t2 =
         , t1 ^. txMetaCreationAt == t2 ^. txMetaCreationAt
         , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
+        , t1 ^. txMetaAccountId == t2 ^. txMetaAccountId
         ]
 
+type AccountId = Word32
 
 data InvariantViolation =
         DuplicatedTransactionWithDifferentHash Core.TxId
@@ -169,7 +177,8 @@ instance Buildable TxMeta where
                            " outputs = " % F.later mapBuilder %
                            " creationAt = " % F.build %
                            " isLocal = " % F.build %
-                           " isOutgoing = " % F.build
+                           " isOutgoing = " % F.build %
+                           " accountId = " % F.build
                           ) (txMeta ^. txMetaId)
                             (txMeta ^. txMetaAmount)
                             (txMeta ^. txMetaInputs)
@@ -177,6 +186,7 @@ instance Buildable TxMeta where
                             (txMeta ^. txMetaCreationAt)
                             (txMeta ^. txMetaIsLocal)
                             (txMeta ^. txMetaIsOutgoing)
+                            (txMeta ^. txMetaAccountId)
 
 instance Buildable [TxMeta] where
     build txMeta = bprint ("TxMetas: "%listJsonIndent 4) txMeta
@@ -212,4 +222,5 @@ data MetaDBHandle = MetaDBHandle {
     , getTxMeta     :: Core.TxId -> IO (Maybe TxMeta)
     , putTxMeta     :: TxMeta -> IO ()
     , getTxMetas    :: Offset -> Limit -> Maybe Sorting -> IO [TxMeta]
+    , getTxMetasByAccounts :: [AccountId] -> Offset -> Limit -> Maybe Sorting -> IO [TxMeta]
     }
