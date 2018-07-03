@@ -14690,6 +14690,7 @@ license = stdenv.lib.licenses.bsd3;
 , cardano-sl-delegation
 , cardano-sl-delegation-test
 , cardano-sl-infra
+, cardano-sl-infra-test
 , cardano-sl-lrc
 , cardano-sl-lrc-test
 , cardano-sl-networking
@@ -14895,6 +14896,7 @@ cardano-sl-db
 cardano-sl-delegation
 cardano-sl-delegation-test
 cardano-sl-infra
+cardano-sl-infra-test
 cardano-sl-lrc
 cardano-sl-lrc-test
 cardano-sl-networking
@@ -15150,6 +15152,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-binary" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , binary
 , bytestring
@@ -15163,8 +15166,11 @@ license = stdenv.lib.licenses.mit;
 , cryptonite
 , data-default
 , digest
+, directory
 , extra
+, file-embed
 , filelock
+, filepath
 , fmt
 , formatting
 , generic-arbitrary
@@ -15174,6 +15180,7 @@ license = stdenv.lib.licenses.mit;
 , hspec
 , lens
 , mtl
+, pretty-show
 , pvss
 , QuickCheck
 , quickcheck-instances
@@ -15236,6 +15243,7 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
 bytestring
 canonical-json
@@ -15246,8 +15254,11 @@ cereal
 containers
 cryptonite
 data-default
+directory
 extra
+file-embed
 filelock
+filepath
 fmt
 formatting
 generic-arbitrary
@@ -15256,6 +15267,7 @@ hedgehog
 hspec
 lens
 mtl
+pretty-show
 pvss
 QuickCheck
 quickcheck-instances
@@ -15264,6 +15276,7 @@ reflection
 safecopy
 serokell-util
 tagged
+template-haskell
 text
 text-format
 time-units
@@ -15364,17 +15377,24 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-core
+, cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-delegation
+, cardano-sl-delegation-test
 , cardano-sl-infra
 , cardano-sl-lrc
 , cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-txp
+, cardano-sl-txp-test
 , cardano-sl-update
+, cardano-sl-update-test
 , cardano-sl-util
+, cardano-sl-util-test
 , cborg
 , conduit
 , containers
@@ -15387,10 +15407,14 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , filepath
 , formatting
+, generic-arbitrary
+, hspec
 , lens
 , log-warper
 , mtl
 , pipes
+, QuickCheck
+, quickcheck-instances
 , random
 , reflection
 , rocksdb-haskell-ng
@@ -15462,6 +15486,39 @@ unliftio
 unordered-containers
 ];
 libraryToolDepends = [
+cpphs
+];
+testHaskellDepends = [
+base
+bytestring
+cardano-sl-binary
+cardano-sl-binary-test
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-delegation-test
+cardano-sl-ssc
+cardano-sl-txp-test
+cardano-sl-update
+cardano-sl-update-test
+cardano-sl-util
+cardano-sl-util-test
+containers
+formatting
+generic-arbitrary
+hspec
+QuickCheck
+quickcheck-instances
+random
+serokell-util
+text
+text-format
+time-units
+universum
+unordered-containers
+];
+testToolDepends = [
 cpphs
 ];
 doHaddock = false;
@@ -16816,7 +16873,6 @@ license = stdenv.lib.licenses.mit;
 , cardano-report-server
 , cardano-sl-binary
 , cardano-sl-core
-, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-networking
@@ -16834,7 +16890,6 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , filepath
 , formatting
-, generic-arbitrary
 , hashable
 , hspec
 , http-client
@@ -16888,7 +16943,6 @@ bytestring
 cardano-report-server
 cardano-sl-binary
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-networking
@@ -16905,7 +16959,6 @@ ether
 exceptions
 filepath
 formatting
-generic-arbitrary
 hashable
 http-client
 http-client-tls
@@ -16920,7 +16973,6 @@ network-transport
 network-transport-tcp
 optparse-applicative
 parsec
-QuickCheck
 reflection
 safe-exceptions
 serokell-util
@@ -16964,9 +17016,11 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-infra
 , cardano-sl-util-test
 , containers
+, generic-arbitrary
 , hedgehog
 , kademlia
 , memory
+, QuickCheck
 , stdenv
 , universum
 }:
@@ -16984,9 +17038,11 @@ cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-util-test
 containers
+generic-arbitrary
 hedgehog
 kademlia
 memory
+QuickCheck
 universum
 ];
 doHaddock = false;
@@ -17959,6 +18015,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-crypto
 , cardano-sl-crypto-test
 , cardano-sl-infra
+, cardano-sl-infra-test
 , cardano-sl-update
 , cardano-sl-util-test
 , containers
@@ -17981,6 +18038,7 @@ cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-crypto-test
 cardano-sl-infra
+cardano-sl-infra-test
 cardano-sl-update
 cardano-sl-util-test
 containers
@@ -18452,6 +18510,7 @@ license = stdenv.lib.licenses.mit;
 , data-default-class
 , directory
 , exceptions
+, filepath
 , formatting
 , gauge
 , generics-sop
@@ -18468,6 +18527,7 @@ license = stdenv.lib.licenses.mit;
 , mtl
 , neat-interpolation
 , network-transport
+, normaldistribution
 , optparse-applicative
 , pretty-show
 , QuickCheck
@@ -18490,6 +18550,7 @@ license = stdenv.lib.licenses.mit;
 , stm
 , string-conv
 , swagger2
+, tabl
 , text
 , text-format
 , time
@@ -18549,6 +18610,7 @@ cardano-sl-wallet
 conduit
 connection
 containers
+cryptonite
 data-default
 data-default-class
 exceptions
@@ -18664,17 +18726,23 @@ cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
 cardano-sl-wallet
+conduit
 constraints
 containers
+cryptonite
 data-default
 directory
+filepath
 formatting
 hspec
 lens
 log-warper
 mtl
+normaldistribution
+optparse-applicative
 QuickCheck
 quickcheck-instances
+random
 safe-exceptions
 serokell-util
 servant
@@ -18683,6 +18751,7 @@ servant-swagger
 servant-swagger-ui
 string-conv
 swagger2
+tabl
 text
 text-format
 time
@@ -58037,6 +58106,29 @@ doHaddock = false;
 doCheck = false;
 description = "A monad and monad transformer for nondeterministic computations";
 license = "LGPL";
+
+}) {};
+"normaldistribution" = callPackage
+({
+  mkDerivation
+, base
+, random
+, stdenv
+}:
+mkDerivation {
+
+pname = "normaldistribution";
+version = "1.1.0.3";
+sha256 = "6d7ba381946f76f3bd848c90e5bcc6f6ae5c418f7ae294cfc2559541fa02f7e0";
+libraryHaskellDepends = [
+base
+random
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/bjornbm/normaldistribution";
+description = "Minimum fuss normally distributed random values";
+license = stdenv.lib.licenses.bsd3;
 
 }) {};
 "normalization-insensitive" = callPackage
